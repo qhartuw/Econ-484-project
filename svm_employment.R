@@ -416,7 +416,7 @@ cat(sprintf("Loaded %d rows; base rate %.3f; %d family clusters.\n",
             nrow(df), mean(df[[OUTCOME]]), length(unique(df[[CLUSTER]]))))
 
 res_rbf  <- model_svm(df, feat_cols)
-res_poly <- model_svm_poly(df, feat_cols, degree = 2)
+# res_poly <- model_svm_poly(df, feat_cols, degree = 2)
 res_sm   <- model_softmax(df, feat_cols)
 
 cat("\n=== Model comparison (OOF ROC-AUC) ===\n")
