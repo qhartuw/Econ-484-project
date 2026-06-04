@@ -116,35 +116,154 @@ suppressPackageStartupMessages({
   library(DoubleML)
   library(mlr3)
   library(mlr3learners)
+  library(mlr3tuning)   # tuning machinery
+  library(paradox)      # ps() / p_int() / p_dbl() search-space helpers
+  library(ranger)
 })
-lgr::get_logger("mlr3")$set_threshold("warn")   # silence per-fold chatter
+lgr::get_logger("mlr3")$set_threshold("warn")
+lgr::get_logger("bbotk")$set_threshold("warn")   # silence the tuner's per-eval chatter
 
-# Binary treatments to evaluate (each gets the ATE on P(working); the others +
-# female + the continuous controls serve as confounders).
 TREATMENTS <- c("health_limits", "depression", "anxiety",
                 "in_relationship", "drinks_alcohol", "volunteered")
 
-# Estimate the ATE of one binary treatment, flexibly controlling for the rest.
+# ---- cross-fitting + tuning settings ---------------------------------------
+N_FOLDS <- 10
+N_REP   <- 10
+
+# Search space for the two ranger nuisances. mtry.ratio (a fraction of the
+# features) is used instead of mtry so it adapts to each treatment's control set.
+par_grids <- list(
+  "ml_g" = ps(                                   # E[Y|D,X]  (outcome regression)
+    mtry.ratio    = p_dbl(0.2, 0.9),
+    max.depth     = p_int(2, 8),
+    min.node.size = p_int(1, 20)
+  ),
+  "ml_m" = ps(                                   # E[D|X]    (propensity)
+    mtry.ratio    = p_dbl(0.2, 0.9),
+    max.depth     = p_int(2, 8),
+    min.node.size = p_int(5, 40)                 # heavier smoothing for the (often rare) treatment
+  )
+)
+
+tune_settings <- list(
+  terminator = trm("evals", n_evals = 20),       # 20 random configs per nuisance
+  algorithm  = tnr("random_search"),
+  rsmp_tune  = rsmp("cv", folds = 3),            # inner 3-fold CV to score each config
+  measure    = list(
+    "ml_g" = msr("regr.mse"),                    # outcome: squared error
+    "ml_m" = msr("classif.logloss")              # propensity: log loss -> calibrated probabilities
+  )
+)
+
+# ---- ATE of one binary treatment, with TUNED nuisances ---------------------
 dml_ate <- function(treatment) {
   controls <- setdiff(c(xvars, "female"), treatment)
   d <- df[, c(yvar, treatment, controls, "person_id")]
   dat <- DoubleMLClusterData$new(d, y_col = yvar, d_cols = treatment,
                                  x_cols = controls, cluster_cols = "person_id")
 
-  ml_g <- lrn("regr.ranger",    num.trees = 300, max.depth = 5)  # E[Y|D,X]
-  ml_m <- lrn("classif.ranger", num.trees = 300, max.depth = 5,  # E[D|X] (propensity)
-              predict_type = "prob")
+  ml_g <- lrn("regr.ranger",    num.trees = 500)                        # E[Y|D,X]
+  ml_m <- lrn("classif.ranger", num.trees = 500, predict_type = "prob") # E[D|X]
 
   set.seed(42)
-  irm <- DoubleMLIRM$new(dat, ml_g = ml_g, ml_m = ml_m, n_folds = 5)
+  irm <- DoubleMLIRM$new(dat, ml_g = ml_g, ml_m = ml_m,
+                         n_folds = N_FOLDS, n_rep = N_REP)
+
+  # Tune the ranger hyperparameters BEFORE cross-fitting.
+  # tune_on_folds = FALSE -> one tuning pass on the full sample (cheap); the
+  # chosen settings are then reused across every fold/rep inside fit().
+  irm$tune(param_set = par_grids, tune_settings = tune_settings,
+           tune_on_folds = FALSE)
+
   irm$fit()
   data.frame(treatment = treatment, ATE = irm$coef,
              SE = irm$se, p_value = irm$pval, row.names = NULL)
 }
 
-cat("\n========== (3) DOUBLE ML -- ATE on P(working) [cluster-robust] ==========\n")
+cat(sprintf("\n===== (3) DOUBLE ML -- ATE on P(working) [%d-fold x %d reps, tuned, cluster-robust] =====\n",
+            N_FOLDS, N_REP))
 dml_results <- do.call(rbind, lapply(TREATMENTS, dml_ate))
 dml_results[, c("ATE", "SE", "p_value")] <- round(dml_results[, c("ATE", "SE", "p_value")], 4)
 print(dml_results, row.names = FALSE)
 cat("\nATE = change in P(currently working) from having the trait (D: 0 -> 1),\n",
-    "controlling flexibly (random forests) for all other predictors + sex.\n", sep = "")
+    "controlling flexibly (tuned random forests) for all other predictors + sex.\n", sep = "")
+
+
+
+
+
+## dml redone
+suppressPackageStartupMessages({
+  library(DoubleML)
+  library(mlr3)
+  library(mlr3learners)
+  library(mlr3tuning)   # tuning machinery
+  library(paradox)      # ps() / p_int() / p_dbl() search-space helpers
+  library(ranger)
+})
+
+TREATMENTS <- c("health_limits", "depression", "anxiety",
+                "in_relationship", "drinks_alcohol", "volunteered")
+
+#cross-fitting + tuning settings
+N_FOLDS <- 5
+N_REP   <- 4
+
+# Search space for the two ranger nuisances. mtry.ratio (a fraction of the
+# features) is used instead of mtry so it adapts to each treatment's control set.
+par_grids <- list(
+  "ml_g" = ps(                                   # E[Y|D,X]  (outcome regression)
+    mtry.ratio    = p_dbl(0.2, 0.9),
+    max.depth     = p_int(2, 8),
+    min.node.size = p_int(1, 20)
+  ),
+  "ml_m" = ps(                                   # E[D|X]    (propensity)
+    mtry.ratio    = p_dbl(0.2, 0.9),
+    max.depth     = p_int(2, 8),
+    min.node.size = p_int(5, 40)                 # heavier smoothing for the (often rare) treatment
+  )
+)
+
+tune_settings <- list(
+  terminator = trm("evals", n_evals = 20),       # 20 random configs per nuisance
+  algorithm  = tnr("random_search"),
+  rsmp_tune  = rsmp("cv", folds = 3),            # inner 3-fold CV to score each config
+  measure    = list(
+    "ml_g" = msr("regr.mse"),                    # outcome: squared error
+    "ml_m" = msr("classif.logloss")              # propensity: log loss -> calibrated probabilities
+  )
+)
+
+# ATE of one binary treatment, with TUNED nuisances
+dml_ate <- function(treatment) {
+  controls <- setdiff(c(xvars, "female"), treatment)
+  d <- df[, c(yvar, treatment, controls, "person_id")]
+  dat <- DoubleMLClusterData$new(d, y_col = yvar, d_cols = treatment,
+                                 x_cols = controls, cluster_cols = "person_id")
+  
+  ml_g <- lrn("regr.ranger",    num.trees = 500)                        # E[Y|D,X]
+  ml_m <- lrn("classif.ranger", num.trees = 500, predict_type = "prob") # E[D|X]
+  
+  set.seed(42)
+  irm <- DoubleMLIRM$new(dat, ml_g = ml_g, ml_m = ml_m,
+                         n_folds = N_FOLDS, n_rep = N_REP)
+  
+  # Tune the ranger hyperparameters BEFORE cross-fitting.
+  # tune_on_folds = FALSE -> one tuning pass on the full sample (cheap); the
+  # chosen settings are then reused across every fold/rep inside fit().
+  irm$tune(param_set = par_grids, tune_settings = tune_settings,
+           tune_on_folds = FALSE)
+  
+  irm$fit()
+  data.frame(treatment = treatment, ATE = irm$coef,
+             SE = irm$se, p_value = irm$pval, row.names = NULL)
+}
+
+cat(sprintf("\n===== (3) DOUBLE ML -- ATE on P(working) [%d-fold x %d reps, tuned, cluster-robust] =====\n",
+            N_FOLDS, N_REP))
+dml_results <- do.call(rbind, lapply(TREATMENTS, dml_ate))
+dml_results[, c("ATE", "SE", "p_value")] <- round(dml_results[, c("ATE", "SE", "p_value")], 4)
+print(dml_results, row.names = FALSE)
+cat("\nATE = change in P(currently working) from having the trait (D: 0 -> 1),\n",
+    "controlling flexibly (tuned random forests) for all other predictors + sex.\n", sep = "")
+
