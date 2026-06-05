@@ -164,16 +164,16 @@ emp1              [time-varying]  D1: Employment status, 1st mention.
                   98 = DK
                   99 = NA; refused
 
-------------------------------------------------------------------------------
-SECTION 8: EDUCATION ACTIVITY (Section D118)
-------------------------------------------------------------------------------
-
-edu_activity_hrs  [time-varying]  D118: Hours spent in educational activities
-                  in the past week (attending class, studying, etc.).
-                  Continuous, hours per week.
-                  0 = None
-                  999 = DK/NA (treat as missing before analysis)
-
+#------------------------------------------------------------------------------
+#SECTION 8: EDUCATION ACTIVITY (Section D118)
+#------------------------------------------------------------------------------
+#
+#edu_activity_hrs  [time-varying]  D118: Hours spent in educational activities
+#                  in the past week (attending class, studying, etc.).
+#                  Continuous, hours per week.
+#                  0 = None
+#                  999 = DK/NA (treat as missing before analysis)
+#
 ------------------------------------------------------------------------------
 SECTION 9: CREDIT & LOANS (Section F)
 ------------------------------------------------------------------------------
