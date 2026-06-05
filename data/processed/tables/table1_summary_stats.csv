@@ -1,0 +1,13 @@
+"Variable","Type","Mean (or % for binary)","SD","N","Missing"
+"Age (years)","Continuous",22.37,3.26,7391,0
+"Self-rated health (1=Excellent … 5=Poor)","Continuous",2.38,0.99,7267,124
+"Emotional wellbeing (1–6)","Continuous",4.63,1.18,7324,67
+"Social wellbeing (1–6)","Continuous",3.22,1.31,7303,88
+"Psychological wellbeing (1–6)","Continuous",4.69,1.15,7316,75
+"Social anxiety scale (0–5)","Continuous",2.46,1.66,7370,21
+"Family income (arcsinh-transformed)","Continuous",11.38,2.02,7391,0
+"Currently working (outcome)","Binary (0/1)",55.4,NA,7281,110
+"Female","Binary (0/1)",53.1,NA,7391,0
+"Has chronic health condition","Binary (0/1)",7,NA,7220,171
+"Has learning disorder","Binary (0/1)",7.6,NA,7218,173
+"Did volunteer work","Binary (0/1)",25.8,NA,7371,20

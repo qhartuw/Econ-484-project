@@ -1,0 +1,471 @@
+==============================================================================
+  VARIABLE DESCRIPTIONS: psid_tas_panel.csv
+  Source: PSID Transition into Adulthood Supplement (TAS), Extract J362431
+  Waves: 2019, 2021, 2023
+  Observations: 7,391 person-waves  |  Individuals: 3,932  |  Columns: 75
+  Built by: Data_Pre-Processing/Final_paneldata.R
+  Run from project root (all paths are root-relative)
+==============================================================================
+
+Each row is one person in one wave (person x wave panel).
+Variables labelled "time-varying" change value across a person's waves.
+Variables labelled "time-invariant" are stable across all of a person's rows.
+
+------------------------------------------------------------------------------
+SECTION 1: PANEL IDENTIFIERS
+------------------------------------------------------------------------------
+
+person_id         [time-invariant] String key combining 1968 interview number
+                  and person number, joined by "_" (e.g. "4_3").
+                  Use this as the individual identifier for panel regressions.
+                  Formed as: paste(ER30001, ER30002, sep = "_")
+
+ER30001           [time-invariant] 1968 interview number. First part of the
+                  stable PSID person ID. Numeric.
+
+ER30002           [time-invariant] Person number within the 1968 family.
+                  Second part of the stable PSID person ID. Numeric.
+                  person_id = ER30001 * 1000 + ER30002 (for merging with
+                  other PSID extracts that use the numeric form).
+
+year              [time-varying]  Survey wave year: 2019, 2021, or 2023.
+
+------------------------------------------------------------------------------
+SECTION 2: TIME-INVARIANT PERSON CHARACTERISTICS
+------------------------------------------------------------------------------
+
+ER32000           [time-invariant] Sex of individual (biological sex recorded
+                  at PSID entry).
+                  1 = Male
+                  2 = Female
+
+ER32006           [time-invariant] Sample membership status.
+                  1 = SRC original sample
+                  2 = SRC 1969 mover sample
+                  3 = Census SEO low-income sample
+                  4 = Other
+
+------------------------------------------------------------------------------
+SECTION 3: ACTIVITIES & SOCIAL ENGAGEMENT (Section A)
+------------------------------------------------------------------------------
+
+#club              [time-varying]  A7: In the last 12 months, were you #involved
+#                  with any high school or college clubs or student #government?
+#                  1 = Yes
+#                  5 = No
+#                  6 = Not in school
+#                  8 = DK
+#                  9 = NA; refused
+
+volunteer         [time-varying]  A13: During the last 12 months, did you do
+                  any unpaid volunteer or community service work?
+                  1 = Yes
+                  5 = No
+                  9 = NA; refused
+
+social_media      [time-varying]  A23D: How often do you interact with others
+                  on social media (e.g. Facebook, Instagram, TikTok)?
+                  1 = Every day
+                  2 = Several times a week
+                  3 = About once a week
+                  4 = Less than once a week
+                  5 = Never
+                  8 = DK
+                  9 = NA; refused
+
+follow_interests  [time-varying]  A23E: How often do you use the internet to
+                  follow your personal interests or hobbies?
+                  1 = Every day
+                  2 = Several times a week
+                  3 = About once a week
+                  4 = Less than once a week
+                  5 = Never
+                  9 = NA; refused
+
+------------------------------------------------------------------------------
+SECTION 4: RESPONSIBILITY ATTITUDES (Section B17)
+------------------------------------------------------------------------------
+All four items ask "How much is it YOUR responsibility to...?"
+Scale: 0 = Inap (not applicable / not asked)
+       1 = Not at all my responsibility
+       2 = Somewhat my responsibility
+       3 = Completely my responsibility
+       9 = DK/NA
+
+resp_earn         [time-varying]  B17A: Earn your own living.
+resp_rent         [time-varying]  B17B: Pay your own rent or mortgage.
+resp_bills        [time-varying]  B17C: Pay your own bills.
+resp_money        [time-varying]  B17D: Manage your own money.
+
+------------------------------------------------------------------------------
+SECTION 5: WELL-BEING FREQUENCY BATTERY (Section B18)
+------------------------------------------------------------------------------
+Items from the Keyes Mental Health Continuum Short Form (MHC-SF).
+Each item asks how often the respondent experienced each feeling in the
+PAST MONTH.
+
+Scale: 1 = Never
+       2 = Once or twice
+       3 = About once a week
+       4 = About two or three times a week
+       5 = Almost every day
+       6 = Every day
+       8 = DK
+       9 = NA; refused
+
+wb_happiness       [time-varying]  B18A: How often did you feel happy?
+wb_interest        [time-varying]  B18B: How often did you feel interested
+                   in life?
+wb_satisfied       [time-varying]  B18C: How often did you feel satisfied?
+wb_belong          [time-varying]  B18E: How often did you feel that you
+                   belonged to a community (like a group of friends, your
+                   neighborhood, school, or work)?
+wb_society_better  [time-varying]  B18F: How often did you feel that our
+                   society is becoming a better place for people?
+wb_people_good     [time-varying]  B18G: How often did you feel that people
+                   are basically good?
+wb_manage_daily    [time-varying]  B18J: How often did you feel that you
+                   manage your daily responsibilities well?
+wb_trusting_rel    [time-varying]  B18K: How often did you feel that you had
+                   warm and trusting relationships with others?
+wb_confident_ideas [time-varying]  B18M: How often did you feel confident
+                   to think or express your own ideas and opinions?
+wb_life_direction  [time-varying]  B18O: How often did you feel that your
+                   life has a sense of direction or meaning to it?
+
+------------------------------------------------------------------------------
+SECTION 6: AFFECT (Section B20)
+------------------------------------------------------------------------------
+
+feel_failure      [time-varying]  B20F: How often do you feel like a failure,
+                  like you have let yourself or your family down?
+                  1 = Never
+                  2 = Rarely
+                  3 = Sometimes
+                  4 = Often
+                  9 = DK/NA
+
+------------------------------------------------------------------------------
+SECTION 7: EMPLOYMENT STATUS (Section D1)
+------------------------------------------------------------------------------
+
+emp1              [time-varying]  D1: Employment status, 1st mention.
+                  This is the PRIMARY DEPENDENT VARIABLE for employment
+                  analysis. Use emp1_working (in psid_tas_panel_clean.csv)
+                  for a binary employed/not-employed indicator.
+                  1 = Working now
+                  2 = Temporarily laid off
+                  3 = Looking for work / unemployed
+                  4 = Retired
+                  5 = Disabled / permanently sick
+                  6 = Keeping house
+                  7 = Student
+                  8 = Other
+                  98 = DK
+                  99 = NA; refused
+
+#------------------------------------------------------------------------------
+#SECTION 8: EDUCATION ACTIVITY (Section D118)
+#------------------------------------------------------------------------------
+#
+#edu_activity_hrs  [time-varying]  D118: Hours spent in educational activities
+#                  in the past week (attending class, studying, etc.).
+#                  Continuous, hours per week.
+#                  0 = None
+#                  999 = DK/NA (treat as missing before analysis)
+#
+------------------------------------------------------------------------------
+SECTION 9: CREDIT & LOANS (Section F)
+------------------------------------------------------------------------------
+
+cc_balance        [time-varying]  F23: Do you currently carry any balances
+                  from previous months on any credit cards or store cards?
+                  1 = Yes
+                  5 = No
+                  8 = DK
+                  9 = NA; refused
+
+cc_value          [time-varying]  F25: Total value of outstanding credit card
+                  balance or personal loan balances, in dollars.
+                  Continuous.
+                  9999999999 = DK/NA (treat as missing before analysis).
+                  Note: mean is distorted by the missing-code; recode before use.
+
+loan_federal      [time-varying]  F31: Whether has a federal student loan.
+loan_state        [time-varying]  F31: Whether has a state student loan.
+loan_private      [time-varying]  F31: Whether has a private student loan.
+loan_other        [time-varying]  F31: Whether has another type of loan for
+                  education.
+                  All four loan variables share the same coding:
+                  0 = Inap (not enrolled in / has not attended college)
+                  1 = Yes
+                  5 = No
+                  8 = DK
+                  9 = NA; refused
+
+------------------------------------------------------------------------------
+SECTION 10: EDUCATION (Section G)
+------------------------------------------------------------------------------
+
+edu_aspiration    [time-varying]  G1: What is the highest level of education
+                  you HOPE to complete?
+                  1 = Less than high school
+                  2 = High school diploma or GED
+                  3 = Some college / vocational / technical training
+                  4 = Two-year college degree (Associate's)
+                  5 = Four-year college degree (Bachelor's)
+                  6 = Master's degree
+                  7 = PhD, MD, JD, or other advanced degree
+                  8 = Inap (has gone as far as wants to in school)
+                  98 = DK
+                  99 = NA; refused
+
+edu_expectation   [time-varying]  G3: What is the highest level of education
+                  you EXPECT to complete?
+                  0 = Inap
+                  1 = Less than high school
+                  2 = High school diploma or GED
+                  3 = Some college / vocational / technical training
+                  4 = Two-year college degree (Associate's)
+                  5 = Four-year college degree (Bachelor's)
+                  6 = Master's degree
+                  7 = PhD, MD, JD, or other advanced degree
+                  9 = DK/NA
+
+grade_level       [time-varying]  G5: Current grade level if still in school.
+                  0 = Inap (not currently enrolled)
+                  7-20 = Grade/year level (7=7th grade, 12=12th grade,
+                          13=1st year college, ..., 16=4th year college,
+                          17+=graduate level)
+                  99 = DK/NA
+
+hs_grad           [time-varying]  G6: Whether has graduated from high school
+                  (asked only of those who have not previously reported
+                  graduating).
+                  0 = Inap (already known to have diploma)
+                  1 = Yes, completed GED
+                  2 = Yes, completed diploma
+                  3 = No, has not graduated
+                  9 = DK/NA
+
+attended_college  [time-varying]  G15/G15A: Whether has ever attended college.
+                  NOTE: 2019 uses G15 (attending or has attended); 2021/2023
+                  use G15A (ever attended). Aligned by meaning.
+                  1 = Yes, currently attending
+                  3 = Yes, attended but not currently
+                  5 = No, never attended
+                  9 = DK/NA
+
+major             [time-varying]  G18X: First major of college #1 attended.
+                  Numeric code. 0 = Inap (has not attended college).
+                  See PSID codebook for full major code list.
+
+------------------------------------------------------------------------------
+SECTION 11: HEALTH (Section H)
+------------------------------------------------------------------------------
+
+health            [time-varying]  H1: Self-reported general health status.
+                  1 = Excellent
+                  2 = Very Good
+                  3 = Good
+                  4 = Fair
+                  5 = Poor
+                  9 = DK/NA
+
+health_compare    [time-varying]  H2: How would you compare your health to
+                  about a year and a half ago (before the prior TAS wave)?
+                  1 = Much better now
+                  2 = Somewhat better
+                  3 = About the same
+                  4 = Somewhat worse
+                  5 = Much worse now
+                  9 = DK/NA
+
+health_better     [time-varying]  H3: If health is better, how much better
+                  (follow-up to health_compare).
+                  1 = A lot better
+                  2 = Somewhat better
+                  0/9 = Inap or DK/NA
+
+learning_disorder [time-varying]  H10: Has the respondent ever been told by a
+                  doctor or health professional that they have a learning
+                  disorder?
+                  1 = Yes
+                  5 = No
+                  9 = DK/NA
+
+chronic           [time-varying]  H13: Whether has any other chronic health
+                  condition not previously mentioned.
+                  1 = Yes
+                  5 = No
+                  9 = DK/NA
+
+health_insurance  [time-varying]  H68: Whether currently covered by any health
+                  insurance.
+                  0 = Inap
+                  1 = Yes
+                  5 = No
+                  9 = DK/NA
+
+------------------------------------------------------------------------------
+SECTION 12: RACE (Section L)
+------------------------------------------------------------------------------
+
+race              [time-varying]  L7: Race/ethnicity, first mention.
+                  0 = Inap (respondent not asked; prior response carried)
+                  1 = White
+                  2 = Black / African American
+                  3 = Hispanic / Latino
+                  4 = Asian
+                  5 = American Indian / Alaska Native
+                  6 = Other
+                  7 = Two or more races
+                  8 = Additional mention (rare)
+                  98 = DK
+                  99 = NA; refused
+                  NOTE: The 0=Inap category (~3,393 obs) represents
+                  respondents not re-asked this wave. Treat 0 as missing
+                  before creating race dummy variables.
+
+------------------------------------------------------------------------------
+SECTION 13: SCALES & DERIVED VARIABLES
+------------------------------------------------------------------------------
+
+wellbeing_emo     [time-varying]  LANG/FLOUR Emotional Well-being subscale.
+                  Average of B18A (happiness), B18B (interest), B18C
+                  (satisfaction). Scale 1-6 (higher = more frequent).
+                  9 = Missing / could not be computed.
+
+wellbeing_soc     [time-varying]  LANG/FLOUR Social Well-being subscale.
+                  Average of B18E (belong), B18F (society better), B18G
+                  (people good), B18J (manage daily), B18K (trusting rels).
+                  Scale 1-6 (higher = more frequent).
+                  9 = Missing / could not be computed.
+
+wellbeing_psy     [time-varying]  LANG/FLOUR Psychological Well-being subscale.
+                  Average of B18M (confident ideas), B18O (life direction).
+                  Scale 1-6 (higher = more frequent).
+                  9 = Missing / could not be computed.
+
+social_anxiety    [time-varying]  PSID Social Anxiety Scale (derived).
+                  Higher values = greater social anxiety.
+                  Range 0-8 (meaningful); 9 = DK/NA.
+
+enrollment        [time-varying]  Derived enrollment status.
+                  1  = Enrolled full-time, 2-year college
+                  2  = Enrolled part-time, 2-year college
+                  3  = Enrolled full-time, 4-year college
+                  4  = Not currently enrolled
+                  5  = Enrolled part-time, 4-year college
+                  6  = Enrolled, other type
+                  7  = Enrolled, vocational/technical
+                  9  = DK/NA
+                  10 = Enrolled, graduate school
+                  11 = Other / combination
+                  99 = Missing
+
+highest_edu       [time-varying]  Derived highest education level completed.
+                  1  = 0-5th grade
+                  2  = 6-8th grade
+                  3  = 9-12th grade (no diploma) / GED / HS diploma
+                  4  = Post-secondary non-college vocational
+                  5  = Some college (no degree)
+                  6  = Associate's degree
+                  7  = Bachelor's degree
+                  8  = Some graduate school (no degree)
+                  9  = Master's degree
+                  11 = Professional degree (MD, JD, etc.)
+                  13 = PhD
+                  99 = Missing / DK
+
+mother_edu        [time-varying]  Derived: completed education of mother,
+                  in years of schooling.
+                  0  = Inap / not reported
+                  1-17 = Years of schooling completed
+                  96 = Some college but no degree (special code)
+                  99 = DK/NA
+
+father_edu        [time-varying]  Derived: completed education of father,
+                  in years of schooling.
+                  0  = Inap / not reported
+                  1-17 = Years of schooling completed
+                  96 = Some college but no degree (special code)
+                  98/99 = DK/NA
+
+state             [time-varying]  Current state of residence.
+                  FIPS numeric state code (e.g. 6 = California, 48 = Texas).
+
+------------------------------------------------------------------------------
+SECTION 14: ADMINISTRATIVE / CORE PSID VARIABLES
+------------------------------------------------------------------------------
+
+age               [time-varying]  Age of individual at time of survey.
+                  Range: 17-28 years in this extract.
+
+fam_income        [time-varying]  Total family income in the PRIOR calendar
+                  year (i.e. 2018 income in the 2019 wave, 2020 income in
+                  the 2021 wave, 2022 income in the 2023 wave). Dollars.
+                  Can be negative (losses). No top-coding.
+                  Use log(fam_income + 1) or asinh(fam_income) for
+                  regressions to handle zero and negative values.
+
+interview_number  [time-varying]  PSID family interview number for this wave.
+                  Used to link to the PSID main family file for that year.
+
+sequence_number   [time-varying]  Individual sequence number within the
+                  family interview for this wave.
+
+relation_rp       [time-varying]  Relation to the family reference person
+                  (household head) in this wave.
+                  1 = Reference person
+                  2 = Spouse / cohabiting partner
+                  3 = Child
+                  10 = Other relative
+                  etc. (see PSID individual file codebook)
+
+------------------------------------------------------------------------------
+SECTION 15: LAGGED WELL-BEING VARIABLES
+------------------------------------------------------------------------------
+These variables carry each person's PRIOR-WAVE value of the corresponding
+well-being measure. Lags are created within-person after sorting by year:
+  2019 row -> lag = NA  (no prior wave)
+  2021 row -> lag = person's 2019 value
+  2023 row -> lag = person's 2021 value
+Constructed via dplyr::lag() grouped by person_id in Final_paneldata.R.
+Missing codes are inherited from the source variable (see Sections 5, 6, 13).
+
+wb_happiness_lag       Prior-wave value of wb_happiness       (B18A)
+wb_interest_lag        Prior-wave value of wb_interest        (B18B)
+wb_satisfied_lag       Prior-wave value of wb_satisfied       (B18C)
+wb_belong_lag          Prior-wave value of wb_belong          (B18E)
+wb_society_better_lag  Prior-wave value of wb_society_better  (B18F)
+wb_people_good_lag     Prior-wave value of wb_people_good     (B18G)
+wb_manage_daily_lag    Prior-wave value of wb_manage_daily    (B18J)
+wb_trusting_rel_lag    Prior-wave value of wb_trusting_rel    (B18K)
+wb_confident_ideas_lag Prior-wave value of wb_confident_ideas (B18M)
+wb_life_direction_lag  Prior-wave value of wb_life_direction  (B18O)
+feel_failure_lag       Prior-wave value of feel_failure       (B20F)
+wellbeing_emo_lag      Prior-wave value of wellbeing_emo      (emotional subscale)
+wellbeing_soc_lag      Prior-wave value of wellbeing_soc      (social subscale)
+wellbeing_psy_lag      Prior-wave value of wellbeing_psy      (psychological subscale)
+social_anxiety_lag     Prior-wave value of social_anxiety     (anxiety scale)
+
+==============================================================================
+MISSING VALUE CONVENTIONS (RAW PANEL)
+==============================================================================
+
+This file (psid_tas_panel.csv) retains RAW PSID codes. Do NOT apply
+automatic NA rules — each variable uses its own codes for missing /
+inapplicable values:
+
+  General missing:   8 = DK, 9 = NA/refused (1-digit items)
+                    98 = DK, 99 = NA/refused (2-digit items)
+  Inapplicable:      0 = Inap (question not applicable, e.g. not enrolled)
+  Continuous caps:  99, 999, 9999... = DK/NA (match digit length)
+
+For analysis-ready recoded variables (female, emp1_working, race dummies,
+log_income, health_clean, etc.) use psid_tas_panel_clean.csv.
+
+==============================================================================
+END OF FILE
+==============================================================================
