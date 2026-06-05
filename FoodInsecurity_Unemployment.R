@@ -75,11 +75,6 @@ fs_2021_lookup <- unique(fs[!is.na(fs$iwnum_2023) & !is.na(fs$fs_2021),
 names(fs_2021_lookup) <- c("iwnum_2023","foodstamp_2021")
 # Longer-lag alternative also available: fs_2019 keyed by iwnum_202
 
-cat(sprintf("[J362432] rows=%d | food stamps 2021: n=%d, receipt rate=%.3f | dup keys=%d\n",
-            nrow(fs), sum(!is.na(fs$fs_2021)), mean(fs$fs_2021, na.rm = TRUE),
-            sum(duplicated(fs_2021_lookup$iwnum_2023))))
-
-
 # B. Build the J362299 person-level analysis frame (+ ER35101 merge key)
 codes_299 <- c("ER30001","ER30002","ER32000","ER34904","ER34916","ER34952",
                "TA210562","TA212316","TA212318","ER85768","ER35104","ER35116",
@@ -91,8 +86,6 @@ names_299 <- c("id_fam1968","id_person","sex","age_2021","emp_2021","educ_yrs_20
 df <- tryCatch(
   read_fixed(file.path(DIR_299, "J362299.sas"), file.path(DIR_299, "J362299.txt"),
              codes_299, names_299),
-  error = function(e) stop(conditionMessage(e),
-                           "\n(Most likely ER35101, the 2023 interview number / merge key, was not in the extract.)")
 )
 
 # In PSID, "inapplicable / don't know / refused" answers are stored as ordinary
@@ -158,21 +151,21 @@ cat(sprintf("[sample] N=%d young adults | unemployment rate=%.3f | SNAP-2021 rat
             nrow(d), mean(d[[yvar]]), mean(d[[treat]])))
 
 
-# E. OLS / LPM
+# OLS 
 suppressPackageStartupMessages({ library(sandwich); library(lmtest) })
 clse <- function(m, cl) coeftest(m, vcov = vcovCL(m, cluster = cl))
 
 m_biv  <- lm(reformulate(treat, yvar), data = d)
 m_full <- lm(reformulate(c(treat, controls), yvar), data = d)
 
-cat("===== (1a) OLS: unemployed ~ foodstamp_2021 (bivariate) =====\n")
+cat("(1a) OLS: unemployed ~ foodstamp_2021 (bivariate)\n")
 print(clse(m_biv,  d$id_fam1968))
-cat("\n===== (1b) OLS: + lagged controls [SE clustered by 1968 family] =====\n")
+cat("\n (1b) OLS: + lagged controls [SE clustered by 1968 family] \n")
 print(clse(m_full, d$id_fam1968))
 cat(sprintf("R^2 = %.3f\n\n", summary(m_full)$r.squared))
 
 
-# F. Lasso (let SNAP compete against an expanded feature set)
+# Lasso (also more features)
 suppressPackageStartupMessages(library(glmnet))
 d$age_sq     <- d$age_2021^2
 d$educ_sq    <- d$educ_yrs_2021^2
@@ -187,7 +180,7 @@ y <- d[[yvar]]
 set.seed(42)
 cv <- cv.glmnet(X, y, family = "gaussian", alpha = 1, nfolds = 10)
 co <- coef(cv, s = "lambda.1se")
-cat("===== (2) LASSO (LPM, alpha=1) =====\n")
+cat("(2) LASSO (LPM, alpha=1)\n")
 cat(sprintf("lambda.min=%.5f  lambda.1se=%.5f\n", cv$lambda.min, cv$lambda.1se))
 cat(sprintf("foodstamp_2021 coef @lambda.1se: %.4f  (%s)\n",
             co[treat, 1], ifelse(co[treat, 1] != 0, "SELECTED", "dropped")))
@@ -200,7 +193,7 @@ cat(sprintf("\nforced-in foodstamp_2021 coef @lambda.1se: %.4f\n\n",
             coef(cv_force, s = "lambda.1se")[treat, 1]))
 
 
-# Double ML  ATE of 2021 SNAP receipt on P(unemployed in 2023)
+# Double ML ATE of 2021 SNAP receipt on P(unemployed in 2023)
 # IRM with random-forest nuisances, inference clustered at the 1968 family.
 # Light settings for a first pass; bump n_folds/n_rep and add the tuning
 # block from panel_analysis.R for final numbers.

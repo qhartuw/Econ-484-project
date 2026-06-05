@@ -179,7 +179,10 @@ build_analysis_dataset <- function(write = TRUE) {
   result
 }
 
-# Sourcing this file runs the pipeline and leaves the data.frame in `analysis`.
 # Comment this out if you only want the function defined.
 analysis <- build_analysis_dataset()
 
+
+
+sas <- readLines("J362299.sas")
+grep("FOOD|RAN OUT|LAST|MEAL|EAT|AFFORD", sas, ignore.case = TRUE, value = TRUE)

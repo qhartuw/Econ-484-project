@@ -131,37 +131,38 @@ Higher well-being is associated with a slightly higher probability of being empl
 
 ```{r}
 #Tree
+set.seed(123)
+
 wellbeing_tree_data <- project_data %>%
-  select(
-    employed,
-    all_of(wellbeing_vars)
-  ) %>%
+  select(employed, all_of(wellbeing_vars)) %>%
   na.omit()
 
 colnames(wellbeing_tree_data) <- c(
-  "employed",
-  "Happy",
-  "InterestInLife",
-  "Satisfied",
-  "Community",
-  "SocietyBetter",
-  "PeopleGood",
-  "ManageResponsibilities",
-  "TrustingRelationships",
-  "Confidence",
-  "LifePurpose"
+  "employed","Happy","InterestInLife","Satisfied","Community",
+  "SocietyBetter","PeopleGood","ManageResponsibilities",
+  "TrustingRelationships","Confidence","LifePurpose"
 )
 
+# Train/test split
+n <- nrow(wellbeing_tree_data)
+train_idx <- sample(seq_len(n), size = 0.7 * n)
+
+wb_train <- wellbeing_tree_data[train_idx, ]
+wb_test  <- wellbeing_tree_data[-train_idx, ]
+
+# Fit tree on training data
 wellbeing_tree <- rpart(
   employed ~ .,
-  data = wellbeing_tree_data,
+  data = wb_train,
   method = "class"
 )
 
 rpart.plot(wellbeing_tree)
 
-printcp(wellbeing_tree)
-plotcp(wellbeing_tree)
+# Predict on test data
+wb_pred <- predict(wellbeing_tree, wb_test, type = "class")
+wb_test_acc <- mean(wb_pred == wb_test$employed)
+wb_test_acc
 ```
 The CART model failed to identify meaningful splits, suggesting that individual well-being indicators alone do not strongly distinguish employed from non-employed young adults.
 
@@ -177,18 +178,14 @@ wellbeing_rf <- randomForest(
 )
 
 wellbeing_rf
-
 varImpPlot(wellbeing_rf)
+
 ```
 Some well-being indicators appear moderately important, but predictive power remains weak.
 
 ```{r}
-#LASSO
-x_wellbeing <- model.matrix(
-  employed ~ .,
-  wellbeing_tree_data
-)[, -1]
-
+# LASSO
+x_wellbeing <- model.matrix(employed ~ ., wellbeing_tree_data)[, -1]
 y_wellbeing <- wellbeing_tree_data$employed
 
 set.seed(123)
@@ -204,6 +201,7 @@ plot(wellbeing_lasso)
 
 coef(wellbeing_lasso, s = "lambda.min")
 coef(wellbeing_lasso, s = "lambda.1se")
+
 ```
 lambda.1se selected no predictors
 
@@ -258,18 +256,32 @@ education_logit <- glm(
 
 summary(education_logit)
 ```
+
 ```{r}
 #Tree
+set.seed(123)
+
+n2 <- nrow(education_tree_data)
+train_idx2 <- sample(seq_len(n2), size = 0.7 * n2)
+
+edu_train <- education_tree_data[train_idx2, ]
+edu_test  <- education_tree_data[-train_idx2, ]
+
 education_tree <- rpart(
   employed ~ .,
-  data = education_tree_data,
+  data = edu_train,
   method = "class"
 )
 
 rpart.plot(education_tree)
+
+edu_pred <- predict(education_tree, edu_test, type = "class")
+edu_test_acc <- mean(edu_pred == edu_test$employed)
+edu_test_acc
 ```
+
 ```{r}
-#Random Forest
+# Random Forest
 set.seed(123)
 
 education_rf <- randomForest(
@@ -281,12 +293,10 @@ education_rf <- randomForest(
 
 varImpPlot(education_rf)
 ```
-```{r}
-x_education <- model.matrix(
-  employed ~ .,
-  education_tree_data
-)[,-1]
 
+```{r}
+# LASSO
+x_education <- model.matrix(employed ~ ., education_tree_data)[,-1]
 y_education <- education_tree_data$employed
 
 education_lasso <- cv.glmnet(
@@ -298,18 +308,13 @@ education_lasso <- cv.glmnet(
 
 plot(education_lasso)
 
-coef(
-  education_lasso,
-  s = "lambda.min"
-)
-
-coef(
-  education_lasso,
-  s = "lambda.1se"
-)
+coef(education_lasso, s = "lambda.min")
+coef(education_lasso, s = "lambda.1se")
 ```
 
 ```{r}
+# Final comparison table
+
 # Final comparison table
 
 wellbeing_AIC <- AIC(wellbeing_logit)
@@ -345,7 +350,9 @@ comparison_table <- data.frame(
 )
 
 comparison_table
+
 ```
+
 ```{r}
 ggplot(
   comparison_table,
@@ -469,4 +476,55 @@ ggplot(
 General idea is that well being coeff actually grows when we mix the sample
 
 
+
+
+
+
+
+
+
+```{r}
+# Pull Images
+
+
+library(ggplot2)
+
+# 1. Well-being distribution (ggplot)
+ggsave(
+  "wellbeing_distribution.png",
+  ggplot(project_data, aes(x = wellbeing_score)) +
+    geom_histogram(bins = 20) +
+    labs(title = "Distribution of Well-being Scores"),
+  width = 6, height = 4, dpi = 300
+)
+
+# 2. Education tree
+png("education_tree.png", width = 2000, height = 1300, res = 200)
+rpart.plot(education_tree)
+dev.off()
+
+# 3. Logit AIC comparison 
+ggsave(
+  "logit_aic_comparison.png",
+  ggplot(comparison_table, aes(x = Model_Group, y = Logit_AIC)) +
+    geom_col() +
+    labs(title = "Logit Model Fit Comparison", x = "", y = "AIC"),
+  width = 6, height = 4, dpi = 300
+)
+
+# 4. Well-being coefficient comparison 
+ggsave(
+  "wellbeing_coef_comparison.png",
+  ggplot(wb_compare, aes(x = Model, y = Estimate)) +
+    geom_col(width = 0.6) +
+    geom_errorbar(
+      aes(ymin = Estimate - 1.96 * SE, ymax = Estimate + 1.96 * SE),
+      width = 0.2
+    ) +
+    geom_hline(yintercept = 0, linetype = "dashed") +
+    labs(title = "Well-being Coefficient on Employment",
+         x = "", y = "Logit coefficient (log-odds)"),
+  width = 6, height = 4, dpi = 300
+)
+```
 
