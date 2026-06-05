@@ -77,12 +77,12 @@ VAR_MAP <- list(
   edu_activity_hrs = c("2019"="TA190658","2021"="TA210662","2023"="TA230685"),
 
   # ---- Income sources (E) ----
-  wages               = c("2019"="TA190664","2021"="TA210678","2023"="TA230691"),
-  bonus               = c("2019"="TA190667","2021"="TA210681","2023"="TA230694"),
-  other_labor         = c("2019"="TA190680","2021"="TA210694","2023"="TA230707"),
-  unemp_comp          = c("2019"="TA190683","2021"="TA210716","2023"="TA230715"),
-  unemp_comp_amt      = c("2019"="TA190684","2021"="TA210717","2023"="TA230716"),
-  unemp_income_lastmo = c("2019"="TA190829","2021"="TA210867","2023"="TA230861"),
+  #wages               = c("2019"="TA190664","2021"="TA210678","2023"="TA230691"),
+  #bonus               = c("2019"="TA190667","2021"="TA210681","2023"="TA230694"),
+  #other_labor         = c("2019"="TA190680","2021"="TA210694","2023"="TA230707"),
+  #unemp_comp          = c("2019"="TA190683","2021"="TA210716","2023"="TA230715"),
+  #unemp_comp_amt      = c("2019"="TA190684","2021"="TA210717","2023"="TA230716"),,
+  #unemp_income_lastmo = c("2019"="TA190829","2021"="TA210867","2023"="TA230861"),
 
   # ---- Credit / loans (F) ----
   cc_balance   = c("2019"="TA190896","2021"="TA210933","2023"="TA230948"),
@@ -99,7 +99,7 @@ VAR_MAP <- list(
   hs_grad         = c("2019"="TA190918","2021"="TA210955","2023"="TA230991"),
   # Asymmetric college items aligned by meaning (see grilling decision):
   attended_college   = c("2019"="TA190927","2021"="TA210964","2023"="TA231000"), # G15 / G15A
-  currently_attending= c("2019"="TA190928","2021"="TA210965","2023"="TA231001"), # G16 / G15B
+  #currently_attending= c("2019"="TA190928","2021"="TA210965","2023"="TA231001"), # G16 / G15B
   major           = c("2019"="TA190952","2021"="TA210990","2023"="TA231027"),
 
   # ---- Health (H) ----
@@ -158,6 +158,30 @@ build_wave <- function(yr) {
 
 panel_raw <- bind_rows(lapply(c(2019, 2021, 2023), build_wave)) %>%
   arrange(person_id, year)
+
+############################################################
+# 3a. Add lagged well-being variables
+#     Within each person (group_by), dplyr::lag() shifts values
+#     back one row in the sorted wave order:
+#       2021 row  <- 2019 value
+#       2023 row  <- 2021 value
+#       2019 row  <- NA  (no prior wave)
+#     All lagged columns are named with a _lag suffix.
+############################################################
+
+WB_LAG_VARS <- c(
+  "wb_happiness", "wb_interest", "wb_satisfied", "wb_belong",
+  "wb_society_better", "wb_people_good", "wb_manage_daily",
+  "wb_trusting_rel", "wb_confident_ideas", "wb_life_direction",
+  "feel_failure",
+  "wellbeing_emo", "wellbeing_soc", "wellbeing_psy",
+  "social_anxiety"
+)
+
+panel_raw <- panel_raw %>%
+  group_by(person_id) %>%
+  mutate(across(all_of(WB_LAG_VARS), ~dplyr::lag(.), .names = "{.col}_lag")) %>%
+  ungroup()
 
 ############################################################
 # 4. Check panel structure
@@ -227,13 +251,24 @@ panel_clean <- panel_raw %>%
     fam_income_clean = case_when(fam_income < 0 ~ NA_real_, TRUE ~ as.numeric(fam_income)),
     log_income = log(fam_income_clean + 1),
 
-    # ---- Well-being subscales ----
+    # ---- Well-being subscales (current wave) ----
     wellbeing_emo_clean = case_when(wellbeing_emo %in% c(8,9,98,99) ~ NA_real_,
                                     TRUE ~ as.numeric(wellbeing_emo)),
     wellbeing_soc_clean = case_when(wellbeing_soc %in% c(8,9,98,99) ~ NA_real_,
                                     TRUE ~ as.numeric(wellbeing_soc)),
     wellbeing_psy_clean = case_when(wellbeing_psy %in% c(8,9,98,99) ~ NA_real_,
-                                    TRUE ~ as.numeric(wellbeing_psy))
+                                    TRUE ~ as.numeric(wellbeing_psy)),
+
+    # ---- Lagged well-being (prior wave): same missing codes as current ----
+    # 2021 row = 2019 value; 2023 row = 2021 value; 2019 row = NA.
+    wellbeing_emo_lag_clean  = case_when(wellbeing_emo_lag  %in% c(8,9,98,99) ~ NA_real_,
+                                         TRUE ~ as.numeric(wellbeing_emo_lag)),
+    wellbeing_soc_lag_clean  = case_when(wellbeing_soc_lag  %in% c(8,9,98,99) ~ NA_real_,
+                                         TRUE ~ as.numeric(wellbeing_soc_lag)),
+    wellbeing_psy_lag_clean  = case_when(wellbeing_psy_lag  %in% c(8,9,98,99) ~ NA_real_,
+                                         TRUE ~ as.numeric(wellbeing_psy_lag)),
+    social_anxiety_lag_clean = case_when(social_anxiety_lag == 9 ~ NA_real_,
+                                         TRUE ~ as.numeric(social_anxiety_lag))
   )
 
 ############################################################
@@ -251,6 +286,23 @@ cat("\nemp1 within-person variation (should be >0 persons changing):\n")
 chk <- panel_clean %>% group_by(person_id) %>%
   filter(n() > 1) %>% summarise(varies = n_distinct(emp1[!is.na(emp1)]) > 1)
 print(sum(chk$varies, na.rm = TRUE))
+
+# Lag sanity check: for a person observed in all 3 waves, the 2021 row's
+# lagged value must equal their 2019 row's current value.
+cat("\nLag sanity check (wellbeing_emo_lag):\n")
+lag_chk <- panel_clean %>%
+  filter(!is.na(wellbeing_emo) & !is.na(wellbeing_emo_lag)) %>%
+  group_by(person_id) %>% filter(n() >= 2) %>%
+  arrange(person_id, year) %>%
+  mutate(expected_lag = dplyr::lag(wellbeing_emo)) %>%
+  filter(!is.na(expected_lag)) %>%
+  summarise(lag_correct = all(wellbeing_emo_lag == expected_lag, na.rm = TRUE))
+cat("  Persons where lag matches prior-wave value:",
+    sum(lag_chk$lag_correct, na.rm = TRUE), "/", nrow(lag_chk), "\n")
+
+cat("\nLagged well-being availability by wave:\n")
+print(table(wave  = panel_clean$year,
+            has_lag = !is.na(panel_clean$wellbeing_emo_lag)))
 
 ############################################################
 # 7. Save datasets

@@ -2,7 +2,7 @@
   VARIABLE DESCRIPTIONS: psid_tas_panel.csv
   Source: PSID Transition into Adulthood Supplement (TAS), Extract J362431
   Waves: 2019, 2021, 2023
-  Observations: 7,391 person-waves  |  Individuals: 3,932  |  Columns: 69
+  Observations: 7,391 person-waves  |  Individuals: 3,932  |  Columns: 75
   Built by: Data_Pre-Processing/Final_paneldata.R
   Run from project root (all paths are root-relative)
 ==============================================================================
@@ -49,36 +49,38 @@ ER32006           [time-invariant] Sample membership status.
 SECTION 3: ACTIVITIES & SOCIAL ENGAGEMENT (Section A)
 ------------------------------------------------------------------------------
 
-club              [time-varying]  A7: Whether involved with school clubs or
-                  organizations.
+club              [time-varying]  A7: In the last 12 months, were you involved
+                  with any high school or college clubs or student government?
                   1 = Yes
                   5 = No
                   6 = Not in school
-                  9 = DK/NA
+                  8 = DK
+                  9 = NA; refused
 
-volunteer         [time-varying]  A13: Whether did any volunteer work in the
-                  past 12 months.
+volunteer         [time-varying]  A13: During the last 12 months, did you do
+                  any unpaid volunteer or community service work?
                   1 = Yes
                   5 = No
-                  9 = DK/NA
+                  9 = NA; refused
 
-social_media      [time-varying]  A23D: How often interacts with others on
-                  social media (e.g. Facebook, Instagram, TikTok).
+social_media      [time-varying]  A23D: How often do you interact with others
+                  on social media (e.g. Facebook, Instagram, TikTok)?
                   1 = Every day
                   2 = Several times a week
                   3 = About once a week
                   4 = Less than once a week
                   5 = Never
-                  8/9 = DK/NA
+                  8 = DK
+                  9 = NA; refused
 
-follow_interests  [time-varying]  A23E: How often uses the internet to follow
-                  personal interests or hobbies.
+follow_interests  [time-varying]  A23E: How often do you use the internet to
+                  follow your personal interests or hobbies?
                   1 = Every day
                   2 = Several times a week
                   3 = About once a week
                   4 = Less than once a week
                   5 = Never
-                  9 = DK/NA
+                  9 = NA; refused
 
 ------------------------------------------------------------------------------
 SECTION 4: RESPONSIBILITY ATTITUDES (Section B17)
@@ -90,10 +92,10 @@ Scale: 0 = Inap (not applicable / not asked)
        3 = Completely my responsibility
        9 = DK/NA
 
-resp_earn         [time-varying]  B17A: Earn own living.
-resp_rent         [time-varying]  B17B: Pay own rent or mortgage.
-resp_bills        [time-varying]  B17C: Pay own bills.
-resp_money        [time-varying]  B17D: Manage own money.
+resp_earn         [time-varying]  B17A: Earn your own living.
+resp_rent         [time-varying]  B17B: Pay your own rent or mortgage.
+resp_bills        [time-varying]  B17C: Pay your own bills.
+resp_money        [time-varying]  B17D: Manage your own money.
 
 ------------------------------------------------------------------------------
 SECTION 5: WELL-BEING FREQUENCY BATTERY (Section B18)
@@ -108,23 +110,28 @@ Scale: 1 = Never
        4 = About two or three times a week
        5 = Almost every day
        6 = Every day
-       8/9 = DK/NA
+       8 = DK
+       9 = NA; refused
 
-wb_happiness       [time-varying]  B18A: Felt happy.
-wb_interest        [time-varying]  B18B: Felt interested in life.
-wb_satisfied       [time-varying]  B18C: Felt satisfied.
-wb_belong          [time-varying]  B18E: Felt like you belonged to a community.
-wb_society_better  [time-varying]  B18F: Felt that society is becoming a
-                   better place for people.
-wb_people_good     [time-varying]  B18G: Felt that people are basically good.
-wb_manage_daily    [time-varying]  B18J: Felt you managed daily responsibilities
-                   well.
-wb_trusting_rel    [time-varying]  B18K: Felt you had warm and trusting
-                   relationships with others.
-wb_confident_ideas [time-varying]  B18M: Felt confident to think or express
-                   your own ideas and opinions.
-wb_life_direction  [time-varying]  B18O: Felt that your life has a sense of
-                   direction or meaning to it.
+wb_happiness       [time-varying]  B18A: How often did you feel happy?
+wb_interest        [time-varying]  B18B: How often did you feel interested
+                   in life?
+wb_satisfied       [time-varying]  B18C: How often did you feel satisfied?
+wb_belong          [time-varying]  B18E: How often did you feel that you
+                   belonged to a community (like a group of friends, your
+                   neighborhood, school, or work)?
+wb_society_better  [time-varying]  B18F: How often did you feel that our
+                   society is becoming a better place for people?
+wb_people_good     [time-varying]  B18G: How often did you feel that people
+                   are basically good?
+wb_manage_daily    [time-varying]  B18J: How often did you feel that you
+                   manage your daily responsibilities well?
+wb_trusting_rel    [time-varying]  B18K: How often did you feel that you had
+                   warm and trusting relationships with others?
+wb_confident_ideas [time-varying]  B18M: How often did you feel confident
+                   to think or express your own ideas and opinions?
+wb_life_direction  [time-varying]  B18O: How often did you feel that your
+                   life has a sense of direction or meaning to it?
 
 ------------------------------------------------------------------------------
 SECTION 6: AFFECT (Section B20)
@@ -139,7 +146,7 @@ feel_failure      [time-varying]  B20F: How often do you feel like a failure,
                   9 = DK/NA
 
 ------------------------------------------------------------------------------
-SECTION 8: EMPLOYMENT STATUS (Section D1)
+SECTION 7: EMPLOYMENT STATUS (Section D1)
 ------------------------------------------------------------------------------
 
 emp1              [time-varying]  D1: Employment status, 1st mention.
@@ -154,10 +161,11 @@ emp1              [time-varying]  D1: Employment status, 1st mention.
                   6 = Keeping house
                   7 = Student
                   8 = Other
-                  99 = DK/NA
+                  98 = DK
+                  99 = NA; refused
 
 ------------------------------------------------------------------------------
-SECTION 9: EDUCATION ACTIVITY (Section D118)
+SECTION 8: EDUCATION ACTIVITY (Section D118)
 ------------------------------------------------------------------------------
 
 edu_activity_hrs  [time-varying]  D118: Hours spent in educational activities
@@ -167,57 +175,20 @@ edu_activity_hrs  [time-varying]  D118: Hours spent in educational activities
                   999 = DK/NA (treat as missing before analysis)
 
 ------------------------------------------------------------------------------
-SECTION 10: INCOME SOURCES (Section E)
+SECTION 9: CREDIT & LOANS (Section F)
 ------------------------------------------------------------------------------
 
-wages             [time-varying]  E1: Whether received wages or salary from
-                  an employer in the past year.
+cc_balance        [time-varying]  F23: Do you currently carry any balances
+                  from previous months on any credit cards or store cards?
                   1 = Yes
                   5 = No
-                  8/9 = DK/NA
-
-bonus             [time-varying]  E2B/E2C: Whether received bonus, overtime,
-                  tips, or commission pay in the past year.
-                  1 = Yes
-                  5 = No
-                  8/9 = DK/NA
-
-other_labor       [time-varying]  E3: Whether received other labor income
-                  (e.g. self-employment, freelance) in the past year.
-                  0 = No (note: coded 0, not 5, for this item)
-                  5 = No (alternate code in some waves)
-                  9 = DK/NA
-
-unemp_comp        [time-varying]  E4: Whether received unemployment
-                  compensation in the past year.
-                  1 = Yes
-                  5 = No
-                  8/9 = DK/NA
-
-unemp_comp_amt    [time-varying]  E5: Dollar amount of unemployment
-                  compensation received in the past year.
-                  Continuous, dollars. 0 if none.
-                  999999 = DK/NA (treat as missing before analysis)
-
-unemp_income_lastmo [time-varying] E39: Whether received unemployment income
-                  in the last month.
-                  1 = Yes
-                  5 = No
-                  8/9 = DK/NA
-
-------------------------------------------------------------------------------
-SECTION 11: CREDIT & LOANS (Section F)
-------------------------------------------------------------------------------
-
-cc_balance        [time-varying]  F23: Whether carries a credit card balance
-                  from month to month (i.e. does not pay off in full).
-                  1 = Yes
-                  5 = No
-                  8/9 = DK/NA
+                  8 = DK
+                  9 = NA; refused
 
 cc_value          [time-varying]  F25: Total value of outstanding credit card
                   balance or personal loan balances, in dollars.
-                  Continuous. 9999999999 = DK/NA (treat as missing).
+                  Continuous.
+                  9999999999 = DK/NA (treat as missing before analysis).
                   Note: mean is distorted by the missing-code; recode before use.
 
 loan_federal      [time-varying]  F31: Whether has a federal student loan.
@@ -229,10 +200,11 @@ loan_other        [time-varying]  F31: Whether has another type of loan for
                   0 = Inap (not enrolled in / has not attended college)
                   1 = Yes
                   5 = No
-                  8/9 = DK/NA
+                  8 = DK
+                  9 = NA; refused
 
 ------------------------------------------------------------------------------
-SECTION 12: EDUCATION (Section G)
+SECTION 10: EDUCATION (Section G)
 ------------------------------------------------------------------------------
 
 edu_aspiration    [time-varying]  G1: What is the highest level of education
@@ -244,9 +216,9 @@ edu_aspiration    [time-varying]  G1: What is the highest level of education
                   5 = Four-year college degree (Bachelor's)
                   6 = Master's degree
                   7 = PhD, MD, JD, or other advanced degree
-                  8 = Inap (already completed highest level)
+                  8 = Inap (has gone as far as wants to in school)
                   98 = DK
-                  99 = NA/refused
+                  99 = NA; refused
 
 edu_expectation   [time-varying]  G3: What is the highest level of education
                   you EXPECT to complete?
@@ -284,21 +256,12 @@ attended_college  [time-varying]  G15/G15A: Whether has ever attended college.
                   5 = No, never attended
                   9 = DK/NA
 
-currently_attending [time-varying] G16/G15B: Whether currently attending
-                  college and enrollment intensity.
-                  NOTE: 2019 uses G16; 2021/2023 use G15B. Aligned by meaning.
-                  0 = Inap (never attended college)
-                  1 = Full-time student
-                  2 = Part-time student
-                  5 = Not currently attending
-                  9 = DK/NA
-
 major             [time-varying]  G18X: First major of college #1 attended.
                   Numeric code. 0 = Inap (has not attended college).
                   See PSID codebook for full major code list.
 
 ------------------------------------------------------------------------------
-SECTION 13: HEALTH (Section H)
+SECTION 11: HEALTH (Section H)
 ------------------------------------------------------------------------------
 
 health            [time-varying]  H1: Self-reported general health status.
@@ -345,7 +308,7 @@ health_insurance  [time-varying]  H68: Whether currently covered by any health
                   9 = DK/NA
 
 ------------------------------------------------------------------------------
-SECTION 14: RACE (Section L)
+SECTION 12: RACE (Section L)
 ------------------------------------------------------------------------------
 
 race              [time-varying]  L7: Race/ethnicity, first mention.
@@ -359,13 +322,13 @@ race              [time-varying]  L7: Race/ethnicity, first mention.
                   7 = Two or more races
                   8 = Additional mention (rare)
                   98 = DK
-                  99 = NA/refused
+                  99 = NA; refused
                   NOTE: The 0=Inap category (~3,393 obs) represents
                   respondents not re-asked this wave. Treat 0 as missing
                   before creating race dummy variables.
 
 ------------------------------------------------------------------------------
-SECTION 15: SCALES & DERIVED VARIABLES
+SECTION 13: SCALES & DERIVED VARIABLES
 ------------------------------------------------------------------------------
 
 wellbeing_emo     [time-varying]  LANG/FLOUR Emotional Well-being subscale.
@@ -433,7 +396,7 @@ state             [time-varying]  Current state of residence.
                   FIPS numeric state code (e.g. 6 = California, 48 = Texas).
 
 ------------------------------------------------------------------------------
-SECTION 16: ADMINISTRATIVE / CORE PSID VARIABLES
+SECTION 14: ADMINISTRATIVE / CORE PSID VARIABLES
 ------------------------------------------------------------------------------
 
 age               [time-varying]  Age of individual at time of survey.
@@ -459,6 +422,33 @@ relation_rp       [time-varying]  Relation to the family reference person
                   3 = Child
                   10 = Other relative
                   etc. (see PSID individual file codebook)
+
+------------------------------------------------------------------------------
+SECTION 15: LAGGED WELL-BEING VARIABLES
+------------------------------------------------------------------------------
+These variables carry each person's PRIOR-WAVE value of the corresponding
+well-being measure. Lags are created within-person after sorting by year:
+  2019 row -> lag = NA  (no prior wave)
+  2021 row -> lag = person's 2019 value
+  2023 row -> lag = person's 2021 value
+Constructed via dplyr::lag() grouped by person_id in Final_paneldata.R.
+Missing codes are inherited from the source variable (see Sections 5, 6, 13).
+
+wb_happiness_lag       Prior-wave value of wb_happiness       (B18A)
+wb_interest_lag        Prior-wave value of wb_interest        (B18B)
+wb_satisfied_lag       Prior-wave value of wb_satisfied       (B18C)
+wb_belong_lag          Prior-wave value of wb_belong          (B18E)
+wb_society_better_lag  Prior-wave value of wb_society_better  (B18F)
+wb_people_good_lag     Prior-wave value of wb_people_good     (B18G)
+wb_manage_daily_lag    Prior-wave value of wb_manage_daily    (B18J)
+wb_trusting_rel_lag    Prior-wave value of wb_trusting_rel    (B18K)
+wb_confident_ideas_lag Prior-wave value of wb_confident_ideas (B18M)
+wb_life_direction_lag  Prior-wave value of wb_life_direction  (B18O)
+feel_failure_lag       Prior-wave value of feel_failure       (B20F)
+wellbeing_emo_lag      Prior-wave value of wellbeing_emo      (emotional subscale)
+wellbeing_soc_lag      Prior-wave value of wellbeing_soc      (social subscale)
+wellbeing_psy_lag      Prior-wave value of wellbeing_psy      (psychological subscale)
+social_anxiety_lag     Prior-wave value of social_anxiety     (anxiety scale)
 
 ==============================================================================
 MISSING VALUE CONVENTIONS (RAW PANEL)
