@@ -1,6 +1,5 @@
-# =====================================================================
+
 # foodstamp_unemployment.R   (combined, self-contained)
-# ---------------------------------------------------------------------
 # Does LAGGED 2021 food hardship (SNAP / food-stamp receipt) predict
 # 2023 UNEMPLOYMENT among PSID young adults?
 #
@@ -13,11 +12,7 @@
 #
 # SNAP receipt is a food-HARDSHIP proxy, not the USDA food-insecurity
 # scale -- describe it that way in the paper.
-#
-# RUN (from your RStudio project root):  source("foodstamp_unemployment.R")
-# =====================================================================
 
-# ---- EDIT THESE: point at your two data subfolders -------------------
 DIR_432 <- "J362432"   # holds J362432.sas + J362432.txt (food stamps)
 DIR_299 <- "J362299"   # holds J362299.sas + J362299.txt (employment + 2021 preds)
 AGE_MIN <- 18L; AGE_MAX <- 28L
