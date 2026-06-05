@@ -34,7 +34,7 @@ df$person_id <- paste(df$ER30001, df$ER30002, sep = "_")
 
 VAR_MAP <- list(
   # ---- Activities / social ----
-  club             = c("2019"="TA190022","2021"="TA210021","2023"="TA230021"),
+  #club             = c("2019"="TA190022","2021"="TA210021","2023"="TA230021"),
   volunteer        = c("2019"="TA190029","2021"="TA210028","2023"="TA230028"),
   social_media     = c("2019"="TA190053","2021"="TA210050","2023"="TA230050"),
   follow_interests = c("2019"="TA190054","2021"="TA210051","2023"="TA230051"),
@@ -244,8 +244,8 @@ panel_clean <- panel_raw %>%
 
     # ---- Activities ----
     volunteer_binary = case_when(volunteer == 1 ~ 1, volunteer == 5 ~ 0, TRUE ~ NA_real_),
-    club_clean = case_when(club == 9 ~ NA_real_, TRUE ~ as.numeric(club)),
-    club_label = factor(club_clean),
+    #club_clean = case_when(club == 9 ~ NA_real_, TRUE ~ as.numeric(club)),
+    #club_label = factor(club_clean),
 
     # ---- Family income ----
     fam_income_clean = case_when(fam_income < 0 ~ NA_real_, TRUE ~ as.numeric(fam_income)),

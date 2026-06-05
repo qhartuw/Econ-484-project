@@ -49,13 +49,13 @@ ER32006           [time-invariant] Sample membership status.
 SECTION 3: ACTIVITIES & SOCIAL ENGAGEMENT (Section A)
 ------------------------------------------------------------------------------
 
-club              [time-varying]  A7: In the last 12 months, were you involved
-                  with any high school or college clubs or student government?
-                  1 = Yes
-                  5 = No
-                  6 = Not in school
-                  8 = DK
-                  9 = NA; refused
+#club              [time-varying]  A7: In the last 12 months, were you #involved
+#                  with any high school or college clubs or student #government?
+#                  1 = Yes
+#                  5 = No
+#                  6 = Not in school
+#                  8 = DK
+#                  9 = NA; refused
 
 volunteer         [time-varying]  A13: During the last 12 months, did you do
                   any unpaid volunteer or community service work?
