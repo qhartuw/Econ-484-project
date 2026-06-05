@@ -248,17 +248,27 @@ The interpretable benchmark is a logistic regression,
 where $\Lambda(\cdot)$ is the logistic CDF and $X_i$ is the vector of predictors from one domain. Coefficients are reported on the log-odds scale, and model fit is summarized by the Akaike Information Criterion (AIC), which penalizes added parameters and thus allows fit comparisons across domains with different numbers of predictors.
 
 \subsection{Classification trees}
-A classification tree (CART) recursively partitions respondents on the predictors to form homogeneous groups. Trees impose no linearity or additivity and are fully interpretable: the splits reveal which variables and thresholds separate the employed from the non-employed. A tree that produces no splits is itself informative-it indicates that no single predictor or interaction cleanly distinguishes the two groups.
+For each domain, the classification tree is used to determine whether the predictors contain enough structure to separate employed from non employed young adults. The analysis begins by constructing a complete case dataset for the domain and dividing it into a training sample containing seventy percent of the observations and a test sample containing the remaining thirty percent. The tree is grown entirely on the training data, which allows the algorithm to search across all predictors and all possible thresholds to identify splits that create more homogeneous groups in terms of employment outcomes. 
+
+Once the tree is grown, it is applied to the held out test sample to obtain an honest measure of predictive accuracy. This procedure allows the model to reveal whether the domain contains any variables that generate stable and interpretable partitions. A tree that produces no splits indicates that none of the predictors meaningfully distinguish employed from non employed respondents. A tree with multiple splits indicates that the domain contains predictive structure that generalizes beyond the training data. The test set accuracy is the relevant performance metric, since it reflects how well the discovered structure predicts employment for new observations. This procedure is applied separately to the well being indicators and the education variables so that the predictive content of the two domains can be compared directly.
+
 
 \subsection{Random forests}
-A random forest averages many trees grown on bootstrap samples with randomized splits. It captures nonlinearities and high-order interactions and yields two useful outputs: an out-of-bag (OOB) error estimate, which approximates out-of-sample accuracy, and variable-importance measures (mean decrease in accuracy and in Gini impurity) that rank predictors by their contribution. Each forest is grown with 500 trees.
+
+Random forests are used to assess whether each domain contains nonlinear or interaction based predictive structure that may not be captured by a single classification tree. For each domain, a forest of five hundred trees is grown using bootstrap samples of the complete case dataset. At each split within each tree, a random subset of predictors is considered, which decorrelates the trees and allows the forest to capture a wide range of possible patterns in the data. 
+
+The primary diagnostic from the forest is the out of bag error rate, which is computed by predicting each observation using only the trees for which that observation was not included in the bootstrap sample. This provides an internal estimate of out of sample predictive accuracy without requiring a separate test set. The forest also produces variable importance measures that summarize how much each predictor contributes to reducing classification error across the ensemble. Applying this procedure separately to the well being indicators and the education variables allows the analysis to determine whether either domain contains strong nonlinear predictive signal and which specific variables contribute most to that signal.
+
 
 \subsection{LASSO}
-The LASSO estimates a penalized logistic regression,
+
+The LASSO is used to evaluate how much stable predictive information each domain contains once coefficients are penalized toward zero. The method estimates a penalized logistic regression of employment on the predictors in a given domain,
 \begin{equation}
 \hat\beta = \arg\min_{\beta}\left\{-\ell(\beta) + \lambda \sum_{j} |\beta_j|\right\},
 \end{equation}
-where $\ell(\beta)$ is the log-likelihood and $\lambda$ governs the strength of the $\ell_1$ penalty, which shrinks coefficients toward zero and sets many exactly to zero. The penalty is chosen by cross-validation. we report two standard choices: $\lambda_{\min}$, which minimizes cross-validated deviance, and the more conservative $\lambda_{1se}$, the largest penalty within one standard error of the minimum. The number of variables surviving $\lambda_{1se}$ is a stringent measure of how much robust signal a domain contains.
+where $\ell(\beta)$ is the log likelihood and $\lambda$ controls the strength of the penalty that shrinks coefficients toward zero and sets many exactly to zero. For each domain, the predictors are converted into a model matrix and entered into this penalized logistic model.
+
+The penalty parameter is chosen by ten fold cross validation, which evaluates predictive deviance across multiple training and validation splits of the data. Two values of the penalty are reported. The first, $\lambda_{\min}$, is the value that minimizes cross validated deviance and yields the best predictive fit. The second, $\lambda_{1se}$, is the largest penalty within one standard error of the minimum and provides a more conservative measure of robust signal. The number of predictors that remain nonzero under $\lambda_{1se}$ is the key diagnostic, since it reflects how much stable information the domain contains once regularization is applied. A domain with many surviving predictors contains meaningful predictive structure, while a domain with none contains little or no reliable signal. The procedure is applied separately to the well being indicators and the education variables to compare their relative predictive strength.
 
 \subsection{Does well-being add anything to education?}
 
