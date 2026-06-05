@@ -376,3 +376,45 @@ ggplot(
   )
 ```
 Overall, the education variables provide stronger and more stable predictive information than the well-being variables. The education logit model has a much lower AIC, the education tree identifies meaningful splits, and LASSO retains several education variables under the conservative lambda.1se rule. In contrast, the well-being tree does not split and LASSO removes all well-being variables at lambda.1se. Although the random forest can fit both sets of variables, the broader pattern suggests that education is the stronger predictor of employment outcomes.
+
+
+
+```{r}
+## Combined Model: Does Well-being Add Anything to Education?
+# One common sample containing both the well-being score and the education vars
+combined_data <- project_data %>%
+  select(employed, wellbeing_score, all_of(education_vars)) %>%
+  na.omit()
+
+colnames(combined_data) <- c("employed", "WellbeingScore", education_labels)
+
+cat("Combined-model sample size:", nrow(combined_data), "person-records\n")
+```
+
+```{r}
+# Education only (estimated on the combined sample)
+combined_edu_only <- glm(
+  employed ~ . - WellbeingScore,
+  data = combined_data,
+  family = binomial
+)
+
+# Education + well-being
+combined_full <- glm(
+  employed ~ .,
+  data = combined_data,
+  family = binomial
+)
+
+summary(combined_full)
+```
+
+```{r}
+# Does adding well-being improve fit? Likelihood-ratio test, same sample.
+anova(combined_edu_only, combined_full, test = "LRT")
+
+# AIC: lower is better. If education-only is not worse, well-being adds nothing.
+AIC(combined_edu_only, combined_full)
+```
+```
+
