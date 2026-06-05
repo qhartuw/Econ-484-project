@@ -1,0 +1,378 @@
+---
+title: "ECON484 project"
+author: "Natalie Li"
+date: "2026-06-04"
+output: pdf_document
+---
+# Predicting Employment Outcomes among Young Adults: Education, Well-being, and Machine Learning Evidence from PSID-TAS 2023.
+
+```{r}
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(glmnet)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(gbm)
+library(nnet)
+```
+
+```{r}
+data <- read_excel("/Users/natalieli/Desktop/ECON484 Project/2023/73datas.xlsx")
+
+dim(data)
+names(data)
+```
+
+```{r}
+project_data <- data %>%
+  mutate(
+    employed = ifelse(
+      TA230239 %in% c(1,2),
+      1,
+      0
+    )
+  )
+table(project_data$employed)
+```
+
+## Wellbeing
+```{r}
+#TA230061 happy
+#TA230062 interest in life
+#TA230063 satisfied
+#TA230065 community
+#TA230066 society better
+#TA230067 people good
+#TA230069 manage responsibilities
+#TA230070 trusting relationships
+#TA230072 confidence
+#TA230074 life purpose
+
+wellbeing_vars <- c(
+  "TA230061",
+  "TA230062",
+  "TA230063",
+  "TA230065",
+  "TA230066",
+  "TA230067",
+  "TA230069",
+  "TA230070",
+  "TA230072",
+  "TA230074"
+)
+
+project_data <- project_data %>%
+  mutate(
+    across(
+      all_of(wellbeing_vars),
+      ~ifelse(. == 9, NA, .)
+    )
+  )
+
+project_data <- project_data %>%
+  rowwise() %>%
+  mutate(
+    wellbeing_score =
+      mean(
+        c_across(all_of(wellbeing_vars)),
+        na.rm = TRUE
+      )
+  ) %>%
+  ungroup()
+summary(project_data$wellbeing_score)
+
+ggplot(
+  project_data,
+  aes(x = wellbeing_score)
+) +
+  geom_histogram(
+    bins = 20
+  ) +
+  labs(
+    title = "Distribution of Well-being Scores"
+  )
+
+project_data %>%
+  group_by(employed) %>%
+  summarise(
+    avg_wellbeing =
+      mean(wellbeing_score,
+           na.rm = TRUE)
+  )
+
+#Employment vs Well-being
+ggplot(
+  project_data,
+  aes(
+    x = factor(employed),
+    y = wellbeing_score
+  )
+) +
+  geom_boxplot() +
+  labs(
+    x = "Employment Status",
+    y = "Well-being Score"
+  )
+```
+```{r}
+#Logistic Regression
+#Does well-being predict employment?
+wellbeing_logit <- glm(
+  employed ~ wellbeing_score,
+  data = project_data,
+  family = binomial
+)
+
+summary(wellbeing_logit)
+```
+Higher well-being is associated with a slightly higher probability of being employed, but this relationship is weak and not statistically significant in the simple logit model.
+
+```{r}
+#Tree
+wellbeing_tree_data <- project_data %>%
+  select(
+    employed,
+    all_of(wellbeing_vars)
+  ) %>%
+  na.omit()
+
+colnames(wellbeing_tree_data) <- c(
+  "employed",
+  "Happy",
+  "InterestInLife",
+  "Satisfied",
+  "Community",
+  "SocietyBetter",
+  "PeopleGood",
+  "ManageResponsibilities",
+  "TrustingRelationships",
+  "Confidence",
+  "LifePurpose"
+)
+
+wellbeing_tree <- rpart(
+  employed ~ .,
+  data = wellbeing_tree_data,
+  method = "class"
+)
+
+rpart.plot(wellbeing_tree)
+
+printcp(wellbeing_tree)
+plotcp(wellbeing_tree)
+```
+The CART model failed to identify meaningful splits, suggesting that individual well-being indicators alone do not strongly distinguish employed from non-employed young adults.
+
+```{r}
+#Random Forest
+set.seed(123)
+
+wellbeing_rf <- randomForest(
+  as.factor(employed) ~ .,
+  data = wellbeing_tree_data,
+  ntree = 500,
+  importance = TRUE
+)
+
+wellbeing_rf
+
+varImpPlot(wellbeing_rf)
+```
+Some well-being indicators appear moderately important, but predictive power remains weak.
+
+```{r}
+#LASSO
+x_wellbeing <- model.matrix(
+  employed ~ .,
+  wellbeing_tree_data
+)[, -1]
+
+y_wellbeing <- wellbeing_tree_data$employed
+
+set.seed(123)
+
+wellbeing_lasso <- cv.glmnet(
+  x_wellbeing,
+  y_wellbeing,
+  family = "binomial",
+  alpha = 1
+)
+
+plot(wellbeing_lasso)
+
+coef(wellbeing_lasso, s = "lambda.min")
+coef(wellbeing_lasso, s = "lambda.1se")
+```
+lambda.1se selected no predictors
+
+
+
+## Education
+```{r}
+education_vars <- c(
+  "TA232393",
+  "TA230990",
+  "TA231000",
+  "TA231001",
+  "TA230986",
+  "TA230988",
+  "TA230685",
+  "TA232394",
+  "TA232396"
+)
+
+education_labels <- c(
+  "HighestEducation",
+  "GradeCompleted",
+  "AttendedCollege",
+  "CurrentCollege",
+  "EducationAspiration",
+  "EducationExpectation",
+  "EducationHours",
+  "MotherEducation",
+  "FatherEducation"
+)
+
+education_tree_data <- project_data %>%
+  select(
+    employed,
+    all_of(education_vars)
+  ) %>%
+  na.omit()
+
+colnames(education_tree_data) <- c(
+  "employed",
+  education_labels
+)
+```
+
+```{r}
+# Logistic Regression
+education_logit <- glm(
+  employed ~ .,
+  data = education_tree_data,
+  family = binomial
+)
+
+summary(education_logit)
+```
+```{r}
+#Tree
+education_tree <- rpart(
+  employed ~ .,
+  data = education_tree_data,
+  method = "class"
+)
+
+rpart.plot(education_tree)
+```
+```{r}
+#Random Forest
+set.seed(123)
+
+education_rf <- randomForest(
+  as.factor(employed) ~ .,
+  data = education_tree_data,
+  ntree = 500,
+  importance = TRUE
+)
+
+varImpPlot(education_rf)
+```
+```{r}
+x_education <- model.matrix(
+  employed ~ .,
+  education_tree_data
+)[,-1]
+
+y_education <- education_tree_data$employed
+
+education_lasso <- cv.glmnet(
+  x_education,
+  y_education,
+  family = "binomial",
+  alpha = 1
+)
+
+plot(education_lasso)
+
+coef(
+  education_lasso,
+  s = "lambda.min"
+)
+
+coef(
+  education_lasso,
+  s = "lambda.1se"
+)
+```
+
+```{r}
+# Final comparison table
+
+wellbeing_AIC <- AIC(wellbeing_logit)
+education_AIC <- AIC(education_logit)
+
+wellbeing_tree_splits <- wellbeing_tree$cptable[nrow(wellbeing_tree$cptable), "nsplit"]
+education_tree_splits <- education_tree$cptable[nrow(education_tree$cptable), "nsplit"]
+
+wellbeing_lasso_1se <- coef(wellbeing_lasso, s = "lambda.1se")
+education_lasso_1se <- coef(education_lasso, s = "lambda.1se")
+
+wellbeing_lasso_vars <- sum(wellbeing_lasso_1se[-1, ] != 0)
+education_lasso_vars <- sum(education_lasso_1se[-1, ] != 0)
+
+wellbeing_rf_acc <- mean(
+  predict(wellbeing_rf, wellbeing_tree_data) ==
+    wellbeing_tree_data$employed
+)
+
+education_rf_acc <- mean(
+  predict(education_rf, education_tree_data) ==
+    education_tree_data$employed
+)
+
+comparison_table <- data.frame(
+  Model_Group = c("Well-being", "Education"),
+  Logit_AIC = c(wellbeing_AIC, education_AIC),
+  Tree_Splits = c(wellbeing_tree_splits, education_tree_splits),
+  LASSO_lambda_1se_Selected_Variables =
+    c(wellbeing_lasso_vars, education_lasso_vars),
+  Random_Forest_Training_Accuracy =
+    c(wellbeing_rf_acc, education_rf_acc)
+)
+
+comparison_table
+```
+```{r}
+ggplot(
+  comparison_table,
+  aes(
+    x = Model_Group,
+    y = Logit_AIC
+  )
+) +
+  geom_col() +
+  labs(
+    title = "Logit Model Fit Comparison",
+    x = "",
+    y = "AIC"
+  )
+
+ggplot(
+  comparison_table,
+  aes(
+    x = Model_Group,
+    y = LASSO_lambda_1se_Selected_Variables
+  )
+) +
+  geom_col() +
+  labs(
+    title = "LASSO Variable Selection Comparison",
+    x = "",
+    y = "Number of Variables Selected"
+  )
+```
+Overall, the education variables provide stronger and more stable predictive information than the well-being variables. The education logit model has a much lower AIC, the education tree identifies meaningful splits, and LASSO retains several education variables under the conservative lambda.1se rule. In contrast, the well-being tree does not split and LASSO removes all well-being variables at lambda.1se. Although the random forest can fit both sets of variables, the broader pattern suggests that education is the stronger predictor of employment outcomes.
