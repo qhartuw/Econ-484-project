@@ -19,7 +19,7 @@ library(nnet)
 ```
 
 ```{r}
-data <- read_excel("/Users/natalieli/Desktop/ECON484 Project/2023/73datas.xlsx")
+data <- read_excel("73datas.xlsx")
 
 dim(data)
 names(data)
