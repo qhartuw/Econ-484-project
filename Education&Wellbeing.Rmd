@@ -416,5 +416,57 @@ anova(combined_edu_only, combined_full, test = "LRT")
 # AIC: lower is better. If education-only is not worse, well-being adds nothing.
 AIC(combined_edu_only, combined_full)
 ```
+
+```{r}
+# Well-being coefficient before vs after controlling for education
+wb_alone    <- summary(wellbeing_logit)$coefficients["wellbeing_score", ]
+wb_combined <- summary(combined_full)$coefficients["WellbeingScore", ]
+
+wb_compare <- data.frame(
+  Model = c("Well-being only", "Education + Well-being"),
+  Estimate = c(
+    as.numeric(wb_alone["Estimate"]),
+    as.numeric(wb_combined["Estimate"])
+  ),
+  SE = c(
+    as.numeric(wb_alone["Std. Error"]),
+    as.numeric(wb_combined["Std. Error"])
+  )
+)
+
+wb_compare$Model <- factor(
+  wb_compare$Model,
+  levels = c("Well-being only", "Education + Well-being")
+)
+
+ggplot(
+  wb_compare,
+  aes(
+    x = Model,
+    y = Estimate
+  )
+) +
+  geom_col(
+    width = 0.6
+  ) +
+  geom_errorbar(
+    aes(
+      ymin = Estimate - 1.96 * SE,
+      ymax = Estimate + 1.96 * SE
+    ),
+    width = 0.2
+  ) +
+  geom_hline(
+    yintercept = 0,
+    linetype = "dashed"
+  ) +
+  labs(
+    title = "Well-being Coefficient on Employment",
+    x = "",
+    y = "Logit coefficient (log-odds)"
+  )
 ```
+General idea is that well being coeff actually grows when we mix the sample
+
+
 
