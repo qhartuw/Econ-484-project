@@ -1,0 +1,204 @@
+# =============================================================================
+# figures.R
+# Produces Figure 1 and Figure 2 for the paper.
+# Run from inside the Econ-484-project folder (open the .Rproj file first).
+# Saves PNGs to data/processed/figures/
+# =============================================================================
+
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(dplyr)
+  library(readxl)
+  library(randomForest)
+})
+
+set.seed(42)
+
+# Create output folder
+OUT_DIR <- file.path("data", "processed", "figures")
+dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
+
+# ---- Load data --------------------------------------------------------------
+cat("Loading data...\n")
+tas23   <- read_excel(file.path("data", "73datas.xlsx"))
+panel   <- read.csv(file.path("data", "processed", "employment_panel_long.csv"),
+                    stringsAsFactors = FALSE)
+panel23 <- panel %>% filter(wave == 2023)
+
+tas23 <- tas23 %>%
+  mutate(person_id = ER30001 * 1000 + ER30002)
+
+df <- tas23 %>%
+  left_join(panel23 %>% select(
+    person_id, total_family_income,
+    wtr_involved_with_school_clubs, race_mention_1,
+    wtr_help_pay_student_loans, wtr_romantic_relationship_now,
+    wtr_did_volunteer_work, wtr_drink_alcohol,
+    wtr_member_of_sports_team, wtr_health_condition_limits_work,
+    wtr_ever_had_high_blood_pressure, wtr_depression, wtr_anxiety,
+    wtr_take_nerve_meds, wtr_ever_had_emotional_psych_probs
+  ), by = "person_id")
+
+# ---- Recode -----------------------------------------------------------------
+yn  <- function(x) ifelse(x == 1, 1L, ifelse(x == 5,  0L, NA_integer_))
+has <- function(x) ifelse(x == 1, 1L, ifelse(x %in% c(0, 5), 0L, NA_integer_))
+
+df <- df %>%
+  mutate(
+    employed        = case_when(TA230239 %in% c(1,2) ~ 1L,
+                                TA230239 %in% c(3,4,5,6,7) ~ 0L,
+                                TRUE ~ NA_integer_),
+    health_limits   = yn(wtr_health_condition_limits_work),
+    high_bp         = yn(wtr_ever_had_high_blood_pressure),
+    depression      = has(wtr_depression),
+    anxiety         = has(wtr_anxiety),
+    nerve_meds      = has(wtr_take_nerve_meds),
+    emotional_probs = yn(wtr_ever_had_emotional_psych_probs),
+    in_relationship = yn(wtr_romantic_relationship_now),
+    drinks_alcohol  = yn(wtr_drink_alcohol),
+    volunteered     = yn(wtr_did_volunteer_work),
+    sports_team     = yn(wtr_member_of_sports_team),
+    school_clubs    = yn(wtr_involved_with_school_clubs),
+    student_loans   = yn(wtr_help_pay_student_loans),
+    female          = case_when(ER32000 == 2 ~ 1L, ER32000 == 1 ~ 0L,
+                                TRUE ~ NA_integer_),
+    age             = ifelse(ER35103 >= 18 & ER35103 <= 40,
+                             as.numeric(ER35103), NA_real_),
+    race_white      = ifelse(race_mention_1 == 1, 1L,
+                             ifelse(!is.na(race_mention_1) & race_mention_1 > 0,
+                                    0L, NA_integer_)),
+    asinh_income    = asinh(total_family_income),
+    educ_level      = ifelse(TA230113 %in% c(1,2,3,4),
+                             as.numeric(TA230113), NA_real_),
+    college_attend  = case_when(TA230171 == 1 ~ 1L, TA230171 == 2 ~ 0L,
+                                TRUE ~ NA_integer_)
+  )
+
+predictors <- c("health_limits","high_bp","depression","anxiety","nerve_meds",
+                "emotional_probs","in_relationship","drinks_alcohol","volunteered",
+                "sports_team","school_clubs","student_loans","female","age",
+                "race_white","asinh_income","educ_level","college_attend")
+
+df_model <- df %>%
+  select(employed, all_of(predictors)) %>%
+  filter(complete.cases(.))
+
+cat(sprintf("Sample: %d respondents, employment rate: %.1f%%\n",
+            nrow(df_model), mean(df_model$employed) * 100))
+
+# ---- Theme ------------------------------------------------------------------
+theme_paper <- theme_minimal(base_size = 13) +
+  theme(plot.title    = element_text(face = "bold", size = 14),
+        plot.subtitle = element_text(colour = "grey40", size = 11),
+        axis.title    = element_text(size = 12),
+        legend.position = "bottom")
+
+# ---- FIGURE 1: Employment rate by subgroup ----------------------------------
+cat("Building Figure 1...\n")
+
+subgroups <- list(
+  list(var = "depression",      label = "Depression",         g0 = "No",        g1 = "Yes"),
+  list(var = "anxiety",         label = "Anxiety",            g0 = "No",        g1 = "Yes"),
+  list(var = "health_limits",   label = "Health limits work", g0 = "No",        g1 = "Yes"),
+  list(var = "emotional_probs", label = "Emotional problems", g0 = "No",        g1 = "Yes"),
+  list(var = "volunteered",     label = "Volunteered",        g0 = "No",        g1 = "Yes"),
+  list(var = "in_relationship", label = "In relationship",    g0 = "No",        g1 = "Yes"),
+  list(var = "race_white",      label = "Race",               g0 = "Non-white", g1 = "White"),
+  list(var = "female",          label = "Sex",                g0 = "Male",      g1 = "Female"),
+  list(var = "college_attend",  label = "College attendance", g0 = "No",        g1 = "Yes"),
+  list(var = "drinks_alcohol",  label = "Drinks alcohol",     g0 = "No",        g1 = "Yes"),
+  list(var = "school_clubs",    label = "School clubs",       g0 = "No",        g1 = "Yes")
+)
+
+fig1_rows <- lapply(subgroups, function(s) {
+  sub <- df_model %>% filter(!is.na(.data[[s$var]]))
+  data.frame(
+    Variable = s$label,
+    Group    = c(s$g0, s$g1),
+    Pct      = c(mean(sub$employed[sub[[s$var]] == 0]) * 100,
+                 mean(sub$employed[sub[[s$var]] == 1]) * 100),
+    stringsAsFactors = FALSE
+  )
+})
+fig1_data       <- do.call(rbind, fig1_rows)
+fig1_data$diff  <- ave(fig1_data$Pct, fig1_data$Variable,
+                       FUN = function(x) x[2] - x[1])
+
+fig1 <- ggplot(fig1_data,
+               aes(x = reorder(Variable, diff), y = Pct, fill = Group)) +
+  geom_col(position = position_dodge(0.7), width = 0.65, colour = "white") +
+  geom_text(aes(label = sprintf("%.1f%%", Pct)),
+            position = position_dodge(0.7), hjust = -0.1, size = 3.5) +
+  coord_flip() +
+  scale_fill_manual(values = c("No" = "#2166ac", "Yes" = "#d6604d",
+                               "Male" = "#2166ac", "Female" = "#d6604d",
+                               "Non-white" = "#2166ac", "White" = "#d6604d"),
+                    name = NULL) +
+  scale_y_continuous(limits = c(0, 75),
+                     labels = function(x) paste0(x, "%")) +
+  labs(title    = "Figure 1: Employment Rate by Subgroup",
+       subtitle = "PSID-TAS 2023, complete-case sample (N=440)",
+       x = NULL, y = "% Currently Employed") +
+  theme_paper
+
+ggsave(file.path(OUT_DIR, "fig1_employment_by_subgroup.png"),
+       fig1, width = 9, height = 6, dpi = 150)
+cat("Saved Figure 1\n")
+
+# ---- FIGURE 2: Random forest variable importance ----------------------------
+cat("Building Figure 2 (random forest, may take 30 seconds)...\n")
+
+pred_labels <- c(
+  health_limits   = "Health limits work",
+  high_bp         = "High blood pressure",
+  depression      = "Depression",
+  anxiety         = "Anxiety",
+  nerve_meds      = "Psych medication",
+  emotional_probs = "Emotional/psych problems",
+  in_relationship = "In relationship",
+  drinks_alcohol  = "Drinks alcohol",
+  volunteered     = "Volunteered",
+  sports_team     = "Sports team",
+  school_clubs    = "School clubs",
+  student_loans   = "Student loans",
+  female          = "Female",
+  age             = "Age",
+  race_white      = "White (race)",
+  asinh_income    = "Family income (arcsinh)",
+  educ_level      = "Education level",
+  college_attend  = "College attendance"
+)
+
+rf <- randomForest(x     = df_model[, predictors],
+                   y     = as.factor(df_model$employed),
+                   ntree = 500,
+                   importance = TRUE)
+
+imp_df <- data.frame(
+  variable   = rownames(importance(rf)),
+  importance = importance(rf)[, "MeanDecreaseGini"],
+  stringsAsFactors = FALSE
+) %>%
+  mutate(label = pred_labels[variable]) %>%
+  arrange(importance)
+
+imp_df$label <- factor(imp_df$label, levels = imp_df$label)
+top_q        <- quantile(imp_df$importance, 0.75)
+imp_df$color <- ifelse(imp_df$importance >= top_q, "#d6604d", "#2166ac")
+
+fig2 <- ggplot(imp_df, aes(x = label, y = importance, fill = color)) +
+  geom_col(colour = "white", width = 0.7) +
+  geom_text(aes(label = sprintf("%.3f", importance)),
+            hjust = -0.1, size = 3.4) +
+  coord_flip() +
+  scale_fill_identity() +
+  scale_y_continuous(limits = c(0, max(imp_df$importance) * 1.2)) +
+  labs(title    = "Figure 2: Random Forest Variable Importance",
+       subtitle = "Mean decrease in Gini impurity (500 trees, N=440)",
+       x = NULL, y = "Mean Decrease in Gini") +
+  theme_paper
+
+ggsave(file.path(OUT_DIR, "fig2_variable_importance.png"),
+       fig2, width = 9, height = 6, dpi = 150)
+cat("Saved Figure 2\n")
+cat(sprintf("\nDone! Figures saved to: %s\n", OUT_DIR))
