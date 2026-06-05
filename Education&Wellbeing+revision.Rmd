@@ -1,0 +1,423 @@
+---
+title: "ECON484 project"
+author: "Natalie Li"
+date: "2026-06-04"
+output: pdf_document
+---
+
+# Predicting Employment Outcomes among Young Adults: Education, Well-being, and Machine Learning Evidence from PSID-TAS 2019–2023.
+
+## Main difference between this and the original: added K-fold CV functions for CART, RF, and LASSO. This allows us to compare predictive performance of well-being vs education models more robustly. And, I implemented some modifications to apply them to panel data. Moreover, I used lagged well-being indicators to predict current employment, which is more realistic and avoids simultaneity bias.
+
+```{r setup, message=FALSE, warning=FALSE}
+library(dplyr)
+library(ggplot2)
+library(glmnet)
+library(randomForest)
+library(rpart)
+library(rpart.plot)
+library(lmtest)    # coeftest()
+library(sandwich)  # vcovCL() for clustered SEs
+```
+
+```{r load}
+panel <- read.csv("data/J362431/psid_tas_panel.csv")
+
+panel <- panel %>%
+  filter(emp1 != 99) %>%
+  mutate(
+    employed = ifelse(emp1 == 1, 1, 0),
+    year     = factor(year)
+  )
+
+cat("Person-waves:", nrow(panel),
+    "| Persons:", n_distinct(panel$person_id),
+    "| Waves:", paste(levels(panel$year), collapse = "/"), "\n")
+table(panel$employed, panel$year)
+```
+
+```{r cv_helpers}
+# -----------------------------------------------------------------------
+# K-fold cross-validation helpers
+# Folds are assigned at the PERSON level (grouped CV): all observations
+# for a given person go into the same fold, preventing data leakage
+# across waves of the same individual.
+# -----------------------------------------------------------------------
+
+# Assign each unique person to a fold; return fold index per row.
+make_folds <- function(person_ids, k, seed = 123) {
+  set.seed(seed)
+  persons    <- unique(person_ids)
+  person_fold <- setNames(sample(rep_len(seq_len(k), length(persons))),
+                          persons)
+  unname(person_fold[as.character(person_ids)])
+}
+
+# K-fold CV accuracy for CART (rpart).
+cv_cart <- function(data, person_ids, k, seed = 123) {
+  folds <- make_folds(person_ids, k, seed)
+  accs  <- sapply(seq_len(k), function(f) {
+    train <- data[folds != f, ]
+    test  <- data[folds == f, ]
+    m    <- rpart(employed ~ ., data = train, method = "class")
+    pred <- as.integer(as.character(predict(m, test, type = "class")))
+    mean(pred == test$employed)
+  })
+  mean(accs)
+}
+
+# K-fold CV accuracy for Random Forest.
+cv_rf <- function(data, person_ids, k, seed = 123) {
+  folds <- make_folds(person_ids, k, seed)
+  accs  <- sapply(seq_len(k), function(f) {
+    set.seed(seed + f)          # reproducible per fold
+    train <- data[folds != f, ]
+    test  <- data[folds == f, ]
+    m    <- randomForest(as.factor(employed) ~ ., data = train, ntree = 300)
+    pred <- as.integer(as.character(predict(m, test)))
+    mean(pred == test$employed)
+  })
+  mean(accs)
+}
+
+# K-fold CV accuracy for LASSO.
+# Outer loop: k person-grouped folds (same split as CART/RF for fair comparison).
+# Inner loop: cv.glmnet on the training fold selects lambda (default 10-fold).
+# This avoids the cv.glmnet nfolds >= 3 restriction when k = 2.
+cv_lasso <- function(x, y, person_ids, k, seed = 123) {
+  folds <- make_folds(person_ids, k, seed)
+  accs  <- sapply(seq_len(k), function(f) {
+    set.seed(seed + f)
+    x_tr <- x[folds != f, , drop = FALSE]; y_tr <- y[folds != f]
+    x_te <- x[folds == f, , drop = FALSE]; y_te <- y[folds == f]
+    fit  <- cv.glmnet(x_tr, y_tr, family = "binomial", alpha = 1)
+    prob <- predict(fit, newx = x_te, s = "lambda.1se", type = "response")
+    mean(as.integer(prob > 0.5) == y_te)
+  })
+  mean(accs)
+}
+
+K_VALS <- c(2, 5, 10)
+```
+
+---
+
+## Well-being
+
+```{r wellbeing_prep}
+wb_vars <- c("wb_happiness_lag", "wb_interest_lag", "wb_satisfied_lag",
+             "wb_belong_lag", "wb_society_better_lag", "wb_people_good_lag",
+             "wb_manage_daily_lag", "wb_trusting_rel_lag",
+             "wb_confident_ideas_lag", "wb_life_direction_lag")
+
+panel <- panel %>%
+  mutate(across(all_of(wb_vars), ~ifelse(. %in% c(8, 9), NA, .)))
+
+panel <- panel %>%
+  rowwise() %>%
+  mutate(wellbeing_score = mean(c_across(all_of(wb_vars)), na.rm = TRUE)) %>%
+  ungroup()
+
+summary(panel$wellbeing_score)
+```
+
+```{r wellbeing_plot}
+ggplot(panel, aes(x = wellbeing_score)) +
+  geom_histogram(bins = 20) +
+  labs(title = "Distribution of Well-being Scores (Prior Wave)",
+       x = "Well-being score (avg B18 items, prior wave, 1-6)", y = "Count")
+
+panel %>%
+  group_by(employed) %>%
+  summarise(avg_wellbeing = mean(wellbeing_score, na.rm = TRUE))
+
+ggplot(panel, aes(x = factor(employed), y = wellbeing_score)) +
+  geom_boxplot() +
+  labs(x = "Employed (0 = No, 1 = Yes)", y = "Well-being Score (Prior Wave)",
+       title = "Prior-Wave Well-being by Employment Status")
+```
+
+```{r wellbeing_logit}
+wellbeing_logit <- glm(
+  employed ~ wellbeing_score + year,
+  data = panel, family = binomial
+)
+coeftest(wellbeing_logit,
+         vcov = vcovCL(wellbeing_logit, cluster = ~person_id))
+```
+Higher well-being have no association with employment status in the subsequent wave.
+
+```{r wellbeing_tree_data}
+# Extract person_ids BEFORE renaming so they align with the data rows.
+wb_complete <- panel %>%
+  select(person_id, employed, year, all_of(wb_vars)) %>%
+  na.omit()
+
+wb_person_ids <- wb_complete$person_id   # kept for grouped CV fold assignment
+
+wb_tree_data <- wb_complete %>%
+  select(-person_id)
+
+colnames(wb_tree_data) <- c(
+  "employed", "Year",
+  "Happy", "InterestInLife", "Satisfied",
+  "Community", "SocietyBetter", "PeopleGood",
+  "ManageResponsibilities", "TrustingRelationships",
+  "Confidence", "LifePurpose"
+)
+```
+
+```{r wellbeing_tree}
+wellbeing_tree <- rpart(employed ~ ., data = wb_tree_data, method = "class")
+rpart.plot(wellbeing_tree)
+printcp(wellbeing_tree)
+```
+The CART model failed to identify meaningful splits, suggesting that individual well-being indicators alone do not strongly distinguish employed from non-employed young adults.
+
+```{r wellbeing_rf}
+set.seed(123)
+wellbeing_rf <- randomForest(
+  as.factor(employed) ~ .,
+  data = wb_tree_data, ntree = 500, importance = TRUE
+)
+wellbeing_rf
+varImpPlot(wellbeing_rf)
+```
+Some well-being indicators appear moderately important, but predictive power remains weak.
+
+```{r wellbeing_lasso}
+x_wb <- model.matrix(employed ~ ., wb_tree_data)[, -1]
+y_wb <- wb_tree_data$employed
+
+set.seed(123)
+wellbeing_lasso <- cv.glmnet(x_wb, y_wb, family = "binomial", alpha = 1)
+plot(wellbeing_lasso)
+coef(wellbeing_lasso, s = "lambda.min")
+coef(wellbeing_lasso, s = "lambda.1se")
+```
+lambda.1se selected no predictors.
+
+```{r wellbeing_cv}
+# K-fold CV (grouped by person) for k = 2, 5, 10.
+# Folds are split at the person level to avoid leakage across waves.
+wb_cv <- data.frame(
+  k    = K_VALS,
+  CART = sapply(K_VALS, cv_cart,  data = wb_tree_data, person_ids = wb_person_ids),
+  RF   = sapply(K_VALS, cv_rf,    data = wb_tree_data, person_ids = wb_person_ids),
+  LASSO = sapply(K_VALS, cv_lasso, x = x_wb, y = y_wb, person_ids = wb_person_ids)
+)
+
+cat("Well-being model CV accuracy\n")
+print(round(wb_cv, 3))
+
+# Visualise
+wb_cv_long <- tidyr::pivot_longer(wb_cv, -k,
+                                  names_to = "Model", values_to = "Accuracy")
+ggplot(wb_cv_long, aes(x = factor(k), y = Accuracy,
+                       colour = Model, group = Model)) +
+  geom_line() + geom_point(size = 2) +
+  scale_y_continuous(limits = c(0.5, 1)) +
+  labs(title = "Well-being Models: CV Accuracy by k",
+       x = "Number of folds (k)", y = "CV Accuracy") +
+  theme_minimal()
+```
+
+---
+
+## Education
+
+```{r education_prep}
+edu_vars <- c("highest_edu", "grade_level", "attended_college",
+              "edu_aspiration", "edu_expectation",
+               "mother_edu", "father_edu")
+
+panel <- panel %>%
+  mutate(
+    highest_edu      = ifelse(highest_edu == 99, NA, highest_edu),
+    grade_level      = ifelse(grade_level %in% c(0, 99), NA, grade_level),
+    attended_college = ifelse(attended_college == 9, NA, attended_college),
+    edu_aspiration   = ifelse(edu_aspiration %in% c(8, 98, 99), NA,
+                              edu_aspiration),
+    edu_expectation  = ifelse(edu_expectation %in% c(0, 9), NA,
+                              edu_expectation),
+    mother_edu       = ifelse(mother_edu %in% c(0, 96, 99), NA, mother_edu),
+    father_edu       = ifelse(father_edu %in% c(0, 96, 98, 99), NA, father_edu)
+  )
+```
+
+```{r education_logit}
+edu_logit_data <- panel %>%
+  select(person_id, employed, year, all_of(edu_vars)) %>%
+  na.omit()
+
+cat("Education logit sample:", nrow(edu_logit_data), "person-waves\n")
+
+education_logit <- glm(
+  employed ~ . - person_id,
+  data = edu_logit_data, family = binomial
+)
+coeftest(education_logit,
+         vcov = vcovCL(education_logit, cluster = ~person_id))
+```
+
+```{r education_tree_data}
+# Extract person_ids BEFORE renaming.
+edu_complete <- panel %>%
+  select(person_id, employed, year, all_of(edu_vars)) %>%
+  na.omit()
+
+edu_person_ids <- edu_complete$person_id
+
+edu_tree_data <- edu_complete %>%
+  select(-person_id)
+
+colnames(edu_tree_data) <- c(
+  "employed", "Year",
+  "HighestEducation", "GradeCompleted",
+  "AttendedCollege",
+  "EducationAspiration", "EducationExpectation",
+  "MotherEducation", "FatherEducation"
+)
+
+cat("Education ML sample:", nrow(edu_tree_data), "person-waves\n")
+```
+
+```{r education_tree}
+education_tree <- rpart(employed ~ ., data = edu_tree_data, method = "class")
+rpart.plot(education_tree)
+```
+
+```{r education_rf}
+set.seed(123)
+education_rf <- randomForest(
+  as.factor(employed) ~ .,
+  data = edu_tree_data, ntree = 500, importance = TRUE
+)
+varImpPlot(education_rf)
+```
+
+```{r education_lasso}
+x_edu <- model.matrix(employed ~ ., edu_tree_data)[, -1]
+y_edu <- edu_tree_data$employed
+
+set.seed(123)
+education_lasso <- cv.glmnet(x_edu, y_edu, family = "binomial", alpha = 1)
+plot(education_lasso)
+coef(education_lasso, s = "lambda.min")
+coef(education_lasso, s = "lambda.1se")
+```
+
+```{r education_cv}
+edu_cv <- data.frame(
+  k     = K_VALS,
+  CART  = sapply(K_VALS, cv_cart,  data = edu_tree_data, person_ids = edu_person_ids),
+  RF    = sapply(K_VALS, cv_rf,    data = edu_tree_data, person_ids = edu_person_ids),
+  LASSO = sapply(K_VALS, cv_lasso, x = x_edu, y = y_edu, person_ids = edu_person_ids)
+)
+
+cat("Education model CV accuracy\n")
+print(round(edu_cv, 3))
+
+edu_cv_long <- tidyr::pivot_longer(edu_cv, -k,
+                                   names_to = "Model", values_to = "Accuracy")
+ggplot(edu_cv_long, aes(x = factor(k), y = Accuracy,
+                        colour = Model, group = Model)) +
+  geom_line() + geom_point(size = 2) +
+  scale_y_continuous(limits = c(0.5, 1)) +
+  labs(title = "Education Models: CV Accuracy by k",
+       x = "Number of folds (k)", y = "CV Accuracy") +
+  theme_minimal()
+```
+
+---
+
+## Comparison: Well-being vs Education
+
+```{r comparison}
+wellbeing_AIC <- AIC(wellbeing_logit)
+education_AIC <- AIC(education_logit)
+
+wb_tree_splits  <- wellbeing_tree$cptable[nrow(wellbeing_tree$cptable), "nsplit"]
+edu_tree_splits <- education_tree$cptable[nrow(education_tree$cptable), "nsplit"]
+
+wb_lasso_vars  <- sum(coef(wellbeing_lasso,  s = "lambda.1se")[-1, ] != 0)
+edu_lasso_vars <- sum(coef(education_lasso, s = "lambda.1se")[-1, ] != 0)
+
+wb_rf_acc  <- mean(predict(wellbeing_rf,  wb_tree_data)  == wb_tree_data$employed)
+edu_rf_acc <- mean(predict(education_rf, edu_tree_data) == edu_tree_data$employed)
+
+comparison_table <- data.frame(
+  Model_Group          = c("Well-being", "Education"),
+  Logit_AIC            = c(wellbeing_AIC, education_AIC),
+  Tree_Splits          = c(wb_tree_splits, edu_tree_splits),
+  LASSO_1se_Vars       = c(wb_lasso_vars, edu_lasso_vars),
+  RF_Training_Accuracy = c(wb_rf_acc, edu_rf_acc)
+)
+
+comparison_table
+```
+
+```{r cv_comparison}
+# Side-by-side CV accuracy table: well-being vs education, for k = 2, 5, 10.
+cv_summary <- data.frame(
+  k             = K_VALS,
+  WB_CART       = wb_cv$CART,
+  WB_RF         = wb_cv$RF,
+  WB_LASSO      = wb_cv$LASSO,
+  Edu_CART      = edu_cv$CART,
+  Edu_RF        = edu_cv$RF,
+  Edu_LASSO     = edu_cv$LASSO
+)
+
+cat("CV accuracy: well-being vs education models\n")
+print(round(cv_summary, 3))
+```
+
+```{r comparison_plots}
+ggplot(comparison_table, aes(x = Model_Group, y = Logit_AIC)) +
+  geom_col() +
+  labs(title = "Logit Model Fit Comparison", x = "", y = "AIC")
+
+ggplot(comparison_table, aes(x = Model_Group, y = LASSO_1se_Vars)) +
+  geom_col() +
+  labs(title = "LASSO Variable Selection Comparison",
+       x = "", y = "Variables Selected (lambda.1se)")
+```
+---
+
+## Combined Model: Does Well-being Add Anything to Education?
+
+```{r combined}
+combined_data <- panel %>%
+  select(person_id, employed, year, wellbeing_score, all_of(edu_vars)) %>%
+  na.omit()
+
+colnames(combined_data) <- c(
+  "person_id", "employed", "Year", "WellbeingScore",
+  "HighestEducation", "GradeCompleted", "AttendedCollege",
+  "EducationAspiration", "EducationExpectation",
+  "MotherEducation", "FatherEducation"
+)
+
+cat("Combined-model sample size:", nrow(combined_data), "person-waves\n")
+```
+
+```{r combined_models}
+combined_edu_only <- glm(
+  employed ~ . - WellbeingScore - person_id,
+  data = combined_data, family = binomial
+)
+
+combined_full <- glm(
+  employed ~ . - person_id,
+  data = combined_data, family = binomial
+)
+
+coeftest(combined_full,
+         vcov = vcovCL(combined_full, cluster = ~person_id))
+```
+
+```{r combined_test}
+anova(combined_edu_only, combined_full, test = "LRT")
+AIC(combined_edu_only, combined_full)
+```
